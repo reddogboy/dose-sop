@@ -455,7 +455,7 @@
                                                         <div className="mt-1 p-3 bg-amber-50/50 border border-amber-100/50 rounded-xl animate-fade-in text-sm">
                                                             {q.item.ingredients && q.item.ingredients.length > 0 && (
                                                                 <div className="mb-3">
-                                                                    <div className="font-bold text-slate-700 mb-1 flex items-center gap-1">🙌🏻 สิ่งที่ต้องเตรียม:</div>
+                                                                    <div className="font-bold text-slate-700 mb-1 flex items-center gap-1">📥 สิ่งที่ต้องเตรียม:</div>
                                                                     <ul className="space-y-1">
                                                                         {q.item.ingredients.map((ing, idx) => (
                                                                             <li key={idx} className="flex justify-between items-center text-slate-600 border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
@@ -507,7 +507,7 @@
                                             </div>
                                             <div className="p-5 flex-1 flex flex-col gap-4">
                                                 <div className={`p-4 rounded-xl border ${activeTab === 'recipes' ? 'bg-amber-50/50 border-amber-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                                                    <h4 className="text-sm font-bold text-slate-700 mb-3">📌 {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}</h4>
+                                                    <h4 className="text-sm font-bold text-slate-700 mb-3">📥 {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}</h4>
                                                     {item.ingredients && item.ingredients.length > 0 ? (
                                                         <ul className="grid grid-cols-1 gap-2">
                                                             {item.ingredients.map((ing, idx) => (
