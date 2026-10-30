@@ -33,7 +33,7 @@
         const { useState, useEffect, useMemo } = React;
 
         // =========================================================================
-        // 🔴🔴🔴 TECH LEAD INSTRUCTION: ใส่ FIREBASE CONFIG ของคุณตรงนี้ 🔴🔴🔴
+        // 🔥 FIREBASE CONFIG
         // =========================================================================
         const firebaseConfig = {
           apiKey: "AIzaSyBPuTWgjVlHKmp3C14j6-Ogea3kv6poAU4",
@@ -90,6 +90,7 @@
             const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
             const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
             const [isCatManageModalOpen, setIsCatManageModalOpen] = useState(false);
+            const [isIngManageModalOpen, setIsIngManageModalOpen] = useState(false);
             const [assigningItem, setAssigningItem] = useState(null);
             const [toast, setToast] = useState(null);
 
@@ -98,6 +99,11 @@
             const [newCatName, setNewCatName] = useState('');
             const [editingCatName, setEditingCatName] = useState(null);
             const [editingCatValue, setEditingCatValue] = useState('');
+            
+            const [newIngName, setNewIngName] = useState('');
+            const [editingIngName, setEditingIngName] = useState(null);
+            const [editingIngValue, setEditingIngValue] = useState('');
+
             const [formData, setFormData] = useState({ name: '', category: '', ingredients: [{ name: '', amount: '' }], steps: '' });
             const [quickTaskName, setQuickTaskName] = useState('');
             const [quickTaskStaff, setQuickTaskStaff] = useState('');
@@ -153,7 +159,7 @@
                 }
             };
 
-            // --- Handlers (Cloud-Aware) ---
+            // --- Handlers ---
             const openModal = (item = null) => {
                 if (item) {
                     setEditingItem(item.id);
@@ -191,7 +197,6 @@
                 setConfirmDeleteId(null); showToast('🗑️ ลบรายการสำเร็จ'); 
             };
 
-            // Staff & Category Handlers
             const addStaff = () => { 
                 if (newStaffName.trim()) { 
                     const newList = [...staffList, { id: Date.now(), name: newStaffName }];
@@ -224,7 +229,30 @@
                 setEditingCatName(null);
             };
 
-            // Queue Handlers
+            const addIngredientMaster = () => { 
+                if (newIngName.trim() && !masterIngredients.includes(newIngName.trim())) { 
+                    const newIngs = [...masterIngredients, newIngName.trim()];
+                    setMasterIngredients(newIngs); syncToCloud({ masterIngredients: newIngs }); setNewIngName(''); 
+                } 
+            };
+            const removeIngredientMaster = (ingToRemove) => {
+                const newIngs = masterIngredients.filter(c => c !== ingToRemove);
+                setMasterIngredients(newIngs); syncToCloud({ masterIngredients: newIngs });
+            };
+            const saveEditIngredientMaster = () => {
+                if (!editingIngValue.trim() || editingIngValue.trim() === editingIngName) return setEditingIngName(null);
+                const newName = editingIngValue.trim();
+                const newIngs = masterIngredients.map(c => c === editingIngName ? newName : c);
+                const newItems = items.map(item => {
+                    if (!item.ingredients) return item;
+                    const updatedIngs = item.ingredients.map(ing => ing.name === editingIngName ? { ...ing, name: newName } : ing);
+                    return { ...item, ingredients: updatedIngs };
+                });
+                setMasterIngredients(newIngs); setItems(newItems);
+                syncToCloud({ masterIngredients: newIngs, items: newItems });
+                setEditingIngName(null);
+            };
+
             const addToQueue = (staffId) => {
                 const staff = staffList.find(s => s.id === staffId);
                 const newQueue = [{ qId: Date.now() + Math.random(), item: assigningItem, staffName: staff ? staff.name : 'ไม่ระบุ', status: 'pending', isPriority: false, timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }, ...queue];
@@ -256,7 +284,6 @@
                 setQueue(newQueue); syncToCloud({ queue: newQueue });
             };
 
-            // --- Derived Data ---
             const filteredItems = useMemo(() => {
                 let filtered = items.filter(item => (activeTab === 'recipes' ? item.type === 'recipe' : item.type === 'task'));
                 if (selectedCategoryFilter !== 'All') filtered = filtered.filter(item => item.category === selectedCategoryFilter);
@@ -303,17 +330,27 @@
                     {toast && (<div className="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center gap-2 z-[100] animate-toast whitespace-nowrap">{toast}</div>)}
 
                     <div className="glass-header sticky top-0 z-10 px-4 py-3 md:px-8 flex justify-between items-center shadow-sm">
-                        <div>
+                        <div className="mr-2">
                             <h1 className="text-xl font-black text-amber-800 tracking-tight flex items-center gap-2">
                                 ☕ DOSE 
                                 {isOnlineMode ? <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">Cloud Sync</span> : <span className="bg-slate-200 text-slate-500 text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">Offline</span>}
                             </h1>
                             <p className="text-xs font-bold text-slate-500 mt-1">สาขา: <span className="text-slate-800">{storeCode}</span></p>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => setIsCatManageModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-3 md:py-1.5 rounded-xl font-bold hover:text-amber-600 shadow-sm text-sm">📁<span className="hidden md:inline"> หมวดหมู่</span></button>
-                            <button onClick={() => setIsStaffModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-3 md:py-1.5 rounded-xl font-bold hover:text-indigo-600 shadow-sm text-sm">👥<span className="hidden md:inline"> พนักงาน</span></button>
-                            <button onClick={handleLogout} className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100">ออกระบบ</button>
+                        
+                        <div className="flex gap-1.5 sm:gap-2">
+                            <button onClick={() => setIsCatManageModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 sm:px-3 sm:py-1.5 rounded-xl font-bold hover:text-amber-600 shadow-sm text-sm" title="จัดการหมวดหมู่">
+                                📁<span className="hidden md:inline"> หมวดหมู่</span>
+                            </button>
+                            <button onClick={() => setIsIngManageModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 sm:px-3 sm:py-1.5 rounded-xl font-bold hover:text-amber-600 shadow-sm text-sm" title="จัดการวัตถุดิบ">
+                                📦<span className="hidden md:inline"> วัตถุดิบ</span>
+                            </button>
+                            <button onClick={() => setIsStaffModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 sm:px-3 sm:py-1.5 rounded-xl font-bold hover:text-indigo-600 shadow-sm text-sm" title="จัดการพนักงาน">
+                                👥<span className="hidden md:inline"> พนักงาน</span>
+                            </button>
+                            <button onClick={handleLogout} className="text-[10px] sm:text-xs font-bold text-red-500 bg-red-50 px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg hover:bg-red-100 whitespace-nowrap">
+                                ออกระบบ
+                            </button>
                         </div>
                     </div>
 
@@ -328,18 +365,22 @@
 
                         {activeTab === 'queue' ? (
                             <div className="space-y-4 animate-slide-up">
-                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
-                                    <form onSubmit={addAdHocTask} className="flex-1 flex gap-2">
-                                        <input type="text" placeholder="⚡ งานด่วน..." value={quickTaskName} onChange={e=>setQuickTaskName(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold" />
-                                        <select value={quickTaskStaff} onChange={e=>setQuickTaskStaff(e.target.value)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold max-w-[120px]">
-                                            <option value="">ใครก็ได้</option>
-                                            {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                                        </select>
-                                        <button type="submit" className="bg-amber-500 text-white px-4 rounded-xl font-bold hover:bg-amber-600">เพิ่ม</button>
+                                {/* FIX: แก้ไขปุ่มล้นจอด้วยการจัด Layout ใหม่สำหรับหน้าจอมือถือ (Responsive Flex) */}
+                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col gap-4">
+                                    <form onSubmit={addAdHocTask} className="flex flex-col sm:flex-row gap-2 w-full">
+                                        <input type="text" placeholder="⚡ งานด่วน (เช่น เช็ดโต๊ะ)..." value={quickTaskName} onChange={e=>setQuickTaskName(e.target.value)} className="flex-1 min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold" />
+                                        <div className="flex gap-2">
+                                            <select value={quickTaskStaff} onChange={e=>setQuickTaskStaff(e.target.value)} className="flex-1 sm:w-32 min-w-0 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold">
+                                                <option value="">ใครก็ได้</option>
+                                                {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                            </select>
+                                            <button type="submit" className="shrink-0 bg-amber-500 text-white px-5 rounded-xl font-bold hover:bg-amber-600 text-sm shadow-sm">เพิ่ม</button>
+                                        </div>
                                     </form>
-                                    <div className="md:border-l-2 md:border-slate-100 md:pl-3 flex items-center">
-                                        <select value={queueStaffFilter} onChange={e=>setQueueStaffFilter(e.target.value)} className="w-full md:w-auto p-3 bg-white border border-slate-300 text-indigo-700 rounded-xl outline-none text-sm font-bold">
-                                            <option value="All">🔍 คิวทั้งหมด</option>
+                                    <div className="pt-3 border-t border-slate-100 flex items-center w-full">
+                                        <span className="text-sm font-bold text-slate-400 mr-2 hidden sm:inline">ตัวกรอง:</span>
+                                        <select value={queueStaffFilter} onChange={e=>setQueueStaffFilter(e.target.value)} className="w-full sm:w-auto p-3 bg-white border border-slate-300 text-indigo-700 rounded-xl outline-none text-sm font-bold">
+                                            <option value="All">🔍 ดูคิวทั้งหมด</option>
                                             {staffList.map(s => <option key={s.id} value={s.name}>ของ: {s.name}</option>)}
                                         </select>
                                     </div>
@@ -440,7 +481,7 @@
                         )}
                     </div>
 
-                    {/* FAB Button - ปราการสำคัญที่ทำให้พิมพ์และเพิ่มข้อมูลได้ */}
+                    {/* FAB Button */}
                     {activeTab !== 'queue' && (
                         <button onClick={() => openModal()} className="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg shadow-slate-400/50 hover:bg-slate-700 hover:scale-105 transition-all text-2xl font-light z-40">
                             +
@@ -467,7 +508,7 @@
                         </div>
                     )}
 
-                    {/* 2. Manage Categories Modal */}
+                    {/* 2. Manage Categories Modal (Z-INDEX 70 OVERLAYS THE FORM) */}
                     {isCatManageModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -477,22 +518,22 @@
                                 </div>
                                 <div className="p-5">
                                     <div className="flex gap-2 mb-6">
-                                        <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCategory()} className="flex-1 p-3 border-2 border-slate-200 rounded-lg outline-none" placeholder="ชื่อหมวดหมู่ใหม่" />
-                                        <button onClick={addCategory} className="px-5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600">เพิ่ม</button>
+                                        <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCategory()} className="flex-1 p-3 border-2 border-slate-200 rounded-lg outline-none min-w-0" placeholder="ชื่อหมวดหมู่ใหม่" />
+                                        <button onClick={addCategory} className="px-5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 shrink-0">เพิ่ม</button>
                                     </div>
                                     <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                                         {categories.map(cat => (
                                             <div key={cat} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
                                                 {editingCatName === cat ? (
                                                     <div className="flex gap-2 flex-1 mr-2">
-                                                        <input type="text" value={editingCatValue} onChange={(e) => setEditingCatValue(e.target.value)} className="flex-1 p-1 px-2 border-2 border-amber-300 rounded outline-none w-full" autoFocus />
-                                                        <button onClick={saveEditCategory} className="text-white bg-green-500 px-3 py-1 rounded font-bold text-sm">เซฟ</button>
-                                                        <button onClick={() => setEditingCatName(null)} className="text-slate-500 bg-slate-200 px-3 py-1 rounded font-bold text-sm">ยกเลิก</button>
+                                                        <input type="text" value={editingCatValue} onChange={(e) => setEditingCatValue(e.target.value)} className="flex-1 p-1 px-2 border-2 border-amber-300 rounded outline-none w-full min-w-0" autoFocus />
+                                                        <button onClick={saveEditCategory} className="text-white bg-green-500 px-3 py-1 rounded font-bold text-sm shrink-0">เซฟ</button>
+                                                        <button onClick={() => setEditingCatName(null)} className="text-slate-500 bg-slate-200 px-3 py-1 rounded font-bold text-sm shrink-0">ยกเลิก</button>
                                                     </div>
                                                 ) : (
                                                     <React.Fragment>
-                                                        <span className="font-bold text-slate-700">{cat}</span>
-                                                        <div className="flex gap-1">
+                                                        <span className="font-bold text-slate-700 truncate">{cat}</span>
+                                                        <div className="flex gap-1 shrink-0">
                                                             <button onClick={() => { setEditingCatName(cat); setEditingCatValue(cat); }} className="text-blue-500 font-bold text-sm bg-blue-50 px-3 py-1 rounded-lg">แก้</button>
                                                             <button onClick={() => removeCategory(cat)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg">ลบ</button>
                                                         </div>
@@ -506,7 +547,46 @@
                         </div>
                     )}
 
-                    {/* 3. Manage Staff Modal */}
+                    {/* 3. Manage Ingredients (วัตถุดิบ) Modal (Z-INDEX 70 OVERLAYS THE FORM) */}
+                    {isIngManageModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
+                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h2 className="text-xl font-black text-slate-800">📦 จัดการวัตถุดิบ/อุปกรณ์</h2>
+                                    <button onClick={() => setIsIngManageModalOpen(false)} className="text-slate-400 bg-slate-200 w-8 h-8 rounded-full font-bold">✕</button>
+                                </div>
+                                <div className="p-5">
+                                    <div className="flex gap-2 mb-6">
+                                        <input type="text" value={newIngName} onChange={(e) => setNewIngName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addIngredientMaster()} className="flex-1 p-3 border-2 border-slate-200 rounded-lg outline-none min-w-0" placeholder="ชื่อวัตถุดิบใหม่" />
+                                        <button onClick={addIngredientMaster} className="px-5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 shrink-0">เพิ่ม</button>
+                                    </div>
+                                    <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                                        {masterIngredients.map(ing => (
+                                            <div key={ing} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                                {editingIngName === ing ? (
+                                                    <div className="flex gap-2 flex-1 mr-2">
+                                                        <input type="text" value={editingIngValue} onChange={(e) => setEditingIngValue(e.target.value)} className="flex-1 p-1 px-2 border-2 border-amber-300 rounded outline-none w-full min-w-0" autoFocus />
+                                                        <button onClick={saveEditIngredientMaster} className="text-white bg-green-500 px-3 py-1 rounded font-bold text-sm shrink-0">เซฟ</button>
+                                                        <button onClick={() => setEditingIngName(null)} className="text-slate-500 bg-slate-200 px-3 py-1 rounded font-bold text-sm shrink-0">ยกเลิก</button>
+                                                    </div>
+                                                ) : (
+                                                    <React.Fragment>
+                                                        <span className="font-bold text-slate-700 truncate">{ing}</span>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingIngName(ing); setEditingIngValue(ing); }} className="text-blue-500 font-bold text-sm bg-blue-50 px-3 py-1 rounded-lg">แก้</button>
+                                                            <button onClick={() => removeIngredientMaster(ing)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg">ลบ</button>
+                                                        </div>
+                                                    </React.Fragment>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 4. Manage Staff Modal */}
                     {isStaffModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -516,14 +596,14 @@
                                 </div>
                                 <div className="p-5">
                                     <div className="flex gap-2 mb-6">
-                                        <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStaff()} className="flex-1 p-3 border-2 border-slate-200 rounded-lg outline-none" placeholder="ชื่อพนักงาน" />
-                                        <button onClick={addStaff} className="px-5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">เพิ่ม</button>
+                                        <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStaff()} className="flex-1 p-3 border-2 border-slate-200 rounded-lg outline-none min-w-0" placeholder="ชื่อพนักงาน" />
+                                        <button onClick={addStaff} className="px-5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shrink-0">เพิ่ม</button>
                                     </div>
                                     <div className="space-y-2 max-h-60 overflow-y-auto">
                                         {staffList.map(staff => (
                                             <div key={staff.id} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                                                <span className="font-bold text-slate-700">{staff.name}</span>
-                                                <button onClick={() => removeStaff(staff.id)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg">ลบ</button>
+                                                <span className="font-bold text-slate-700 truncate">{staff.name}</span>
+                                                <button onClick={() => removeStaff(staff.id)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg shrink-0">ลบ</button>
                                             </div>
                                         ))}
                                     </div>
@@ -532,7 +612,7 @@
                         </div>
                     )}
 
-                    {/* 4. Assign Task Modal */}
+                    {/* 5. Assign Task Modal */}
                     {assigningItem && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-end md:items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
@@ -554,7 +634,7 @@
                         </div>
                     )}
 
-                    {/* 5. Add/Edit Form Modal */}
+                    {/* 6. Add/Edit Form Modal (Z-INDEX 60 - จะอยู่ใต้หน้าต่าง Manage ถ้าเปิดขึ้นมา) */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
@@ -569,9 +649,18 @@
                                     </div>
                                     <div>
                                         <label className="block text-sm font-bold text-slate-700 mb-1">หมวดหมู่</label>
-                                        <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none text-slate-600">
+                                        {/* FIX: ถอด window.prompt ออก เปลี่ยนเป็นการเปิดหน้าต่าง Manage แทน */}
+                                        <select value={formData.category} onChange={e => {
+                                            if (e.target.value === '__MANAGE__') {
+                                                setIsCatManageModalOpen(true);
+                                                // ไม่จำเป็นต้องเคลียร์ค่าออก ให้คงค่าเดิมไว้ พอผู้ใช้เพิ่มเสร็จปิดหน้าต่างลงมา ก็กดเลือกใหม่ได้เลย
+                                            } else {
+                                                setFormData({...formData, category: e.target.value});
+                                            }
+                                        }} className="w-full p-3 border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none text-slate-600">
                                             <option value="">-- ไม่ระบุหมวดหมู่ --</option>
                                             {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            <option value="__MANAGE__" className="font-bold text-amber-600 bg-amber-50">⚙️ จัดการหมวดหมู่ (เพิ่ม/ลด/แก้)...</option>
                                         </select>
                                     </div>
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -579,13 +668,21 @@
                                             <label className="block text-sm font-bold text-slate-700">{activeTab === 'recipes' ? 'รายการส่วนผสม' : 'รายการอุปกรณ์'}</label>
                                         </div>
                                         {formData.ingredients.map((ing, index) => (
-                                            <div key={index} className="flex gap-2 mb-2 items-start">
-                                                <select value={ing.name} onChange={(e) => handleIngredientChange(index, 'name', e.target.value)} className="flex-[2] p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm text-slate-600">
+                                            <div key={index} className="flex gap-2 mb-2 items-start w-full">
+                                                {/* FIX: ถอด window.prompt ออก เปลี่ยนเป็นการเปิดหน้าต่าง Manage แทน */}
+                                                <select value={ing.name} onChange={(e) => {
+                                                    if (e.target.value === '__MANAGE__') {
+                                                        setIsIngManageModalOpen(true);
+                                                    } else {
+                                                        handleIngredientChange(index, 'name', e.target.value);
+                                                    }
+                                                }} className="flex-[3] min-w-0 p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm text-slate-600 truncate">
                                                     <option value="">-- ไม่ระบุ --</option>
                                                     {masterIngredients.map(mIng => <option key={mIng} value={mIng}>{mIng}</option>)}
+                                                    <option value="__MANAGE__" className="font-bold text-amber-600 bg-amber-50">⚙️ จัดการวัตถุดิบ (เพิ่ม/ลด/แก้)...</option>
                                                 </select>
-                                                <input type="text" value={ing.amount} onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)} className="flex-1 p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm" placeholder="ปริมาณ" />
-                                                <button type="button" onClick={() => removeIngredientRow(index)} className="p-2.5 text-slate-400 bg-white border border-slate-200 rounded-lg">✕</button>
+                                                <input type="text" value={ing.amount} onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)} className="flex-[2] min-w-0 p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm" placeholder="ปริมาณ" />
+                                                <button type="button" onClick={() => removeIngredientRow(index)} className="shrink-0 p-2.5 px-3 text-slate-400 bg-white border border-slate-200 rounded-lg">✕</button>
                                             </div>
                                         ))}
                                         <button type="button" onClick={addIngredientRow} className="mt-2 text-sm font-bold text-amber-600">+ เพิ่มบรรทัด</button>
@@ -603,7 +700,7 @@
                         </div>
                     )}
 
-                    {/* 6. Delete Confirm Modal */}
+                    {/* 7. Delete Confirm Modal */}
                     {confirmDeleteId && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[80] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-slide-up">
