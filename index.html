@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>DOSE Coffee | SOP & Recipes</title>
     <!-- โหลด React, ReactDOM, Babel และ Tailwind CSS -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -23,9 +23,10 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Mock Data V2 (Structured Data) ---
-        const initialCategories = ['Coffee (Milk)', 'Coffee (Clear)', 'Tea', 'Non-Coffee', 'Opening', 'Closing', 'Cleaning'];
-        const initialIngredientsMaster = ['Espresso Shot', 'นมเย็นจัด', 'นมโอ๊ต', 'ไซรัปวานิลลา', 'น้ำส้ม Yuzu', 'โซดา', 'น้ำแข็ง', 'ผงมัทฉะ', 'กุญแจร้าน', 'เครื่องชงกาแฟ', 'ผงทำความสะอาด', 'ผ้าเช็ดบาร์'];
+        // --- Mock Data V3 (Expanded + Staff) ---
+        const initialCategories = ['Coffee (Milk)', 'Coffee (Clear)', 'Tea', 'Non-Coffee', 'Bakery', 'Opening', 'Closing', 'Cleaning'];
+        const initialIngredientsMaster = ['Espresso Shot', 'นมเย็นจัด', 'นมโอ๊ต', 'นมสด', 'ไซรัปวานิลลา', 'ไซรัปคาราเมล', 'น้ำส้ม Yuzu', 'โซดา', 'น้ำแข็ง', 'ผงมัทฉะ', 'ครัวซองต์เนยสด', 'กุญแจร้าน', 'เครื่องชงกาแฟ', 'ผงทำความสะอาด', 'ผ้าเช็ดบาร์', 'เครื่องคิดเงิน'];
+        const initialStaff = [{id: 1, name: 'บอย (Head Barista)'}, {id: 2, name: 'แนน (Cashier)'}, {id: 3, name: 'จอย (Barista)'}];
 
         const initialItems = [
             { 
@@ -39,9 +40,24 @@
                 steps: '1. ผสมน้ำส้ม Yuzu กับโซดาลงในแก้ว\n2. ใส่น้ำแข็ง\n3. เทช็อต Espresso ลงด้านบนให้แยกชั้น' 
             },
             { 
+                id: 4, type: 'recipe', category: 'Tea', name: 'Premium Matcha Latte', prepTime: '3 mins', 
+                ingredients: [{name: 'ผงมัทฉะ', amount: '5g'}, {name: 'น้ำร้อน', amount: '30ml'}, {name: 'นมสด', amount: '120ml'}, {name: 'น้ำแข็ง', amount: 'เต็มแก้ว'}], 
+                steps: '1. ตีผงมัทฉะกับน้ำร้อนด้วยแปรงไผ่ (Chasen) ให้ละลายไม่เป็นก้อน\n2. เทนมสดและน้ำแข็งลงในแก้ว\n3. เทมัทฉะที่ตีแล้วลงด้านบน' 
+            },
+            { 
+                id: 5, type: 'recipe', category: 'Bakery', name: 'Butter Croissant (อุ่นร้อน)', prepTime: '4 mins', 
+                ingredients: [{name: 'ครัวซองต์เนยสด', amount: '1 ชิ้น'}], 
+                steps: '1. วอร์มเตาอบที่ 170 องศา\n2. อบครัวซองต์ 3-4 นาทีจนกรอบ\n3. เสิร์ฟพร้อมกระดาษรองและส้อม' 
+            },
+            { 
                 id: 3, type: 'task', category: 'Opening', name: 'หน้าที่เปิดร้าน (Morning Shift)', prepTime: '07:00 - 08:00', 
                 ingredients: [{name: 'กุญแจร้าน', amount: '1 ดอก'}, {name: 'เครื่องชงกาแฟ', amount: 'พร้อมใช้งาน'}], 
                 steps: '1. เปิดแอร์และไฟโซนลูกค้า\n2. เปิดเครื่องชงกาแฟ (ไล่น้ำร้อน 1 รอบ)\n3. Calibrate เครื่องบดกาแฟ (เช็ค Perfect Shot)\n4. นับเงินทอนในลิ้นชัก (ต้องมี 2,000 บาท)' 
+            },
+            { 
+                id: 6, type: 'task', category: 'Closing', name: 'ปิดยอดเครื่องคิดเงิน (Z-Read)', prepTime: '18:00 - 18:30', 
+                ingredients: [{name: 'เครื่องคิดเงิน', amount: '1 เครื่อง'}], 
+                steps: '1. กดพิมพ์รายงานสรุปยอดขายประจำวัน (Z-Read)\n2. นับเงินสดในลิ้นชักให้ตรงกับรายงาน\n3. แยกเงินทอน 2,000 บาทไว้สำหรับพรุ่งนี้\n4. นำยอดขายที่เหลือใส่ซองเซ็นชื่อส่ง Manager' 
             }
         ];
 
@@ -53,57 +69,73 @@
 
             // Databases (เก็บลง LocalStorage)
             const [items, setItems] = useState(() => {
-                const saved = localStorage.getItem('dose_sop_data_v2');
+                const saved = localStorage.getItem('dose_sop_data_v3');
                 return saved ? JSON.parse(saved) : initialItems;
             });
             const [categories, setCategories] = useState(() => {
-                const saved = localStorage.getItem('dose_categories');
+                const saved = localStorage.getItem('dose_categories_v3');
                 return saved ? JSON.parse(saved) : initialCategories;
             });
             const [masterIngredients, setMasterIngredients] = useState(() => {
-                const saved = localStorage.getItem('dose_ingredients');
+                const saved = localStorage.getItem('dose_ingredients_v3');
                 return saved ? JSON.parse(saved) : initialIngredientsMaster;
+            });
+            
+            // NEW: Staff & Queue Database
+            const [staffList, setStaffList] = useState(() => {
+                const saved = localStorage.getItem('dose_staff_v3');
+                return saved ? JSON.parse(saved) : initialStaff;
+            });
+            const [queue, setQueue] = useState(() => {
+                const saved = localStorage.getItem('dose_queue_v3');
+                return saved ? JSON.parse(saved) : [];
             });
 
             // Modals State
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [editingItem, setEditingItem] = useState(null);
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-            
-            // Mini-Modals สำหรับเพิ่ม หมวดหมู่/ส่วนผสม ใหม่
-            const [quickAddType, setQuickAddType] = useState(null); // 'category' | 'ingredient' | null
-            const [quickAddValue, setQuickAddValue] = useState('');
-            
-            // Filter Modal State (สำหรับหน้าต่างเลือกหมวดหมู่)
             const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
             
-            // Form State (รองรับ Data แบบ Array)
+            // NEW Modals State
+            const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+            const [assigningItem, setAssigningItem] = useState(null);
+            
+            const [quickAddType, setQuickAddType] = useState(null); 
+            const [quickAddValue, setQuickAddValue] = useState('');
+            const [newStaffName, setNewStaffName] = useState('');
+            
+            // NEW: Manage Categories State
+            const [isCatManageModalOpen, setIsCatManageModalOpen] = useState(false);
+            const [newCatName, setNewCatName] = useState('');
+            const [editingCatName, setEditingCatName] = useState(null);
+            const [editingCatValue, setEditingCatValue] = useState('');
+
+            // Form State
             const [formData, setFormData] = useState({ 
                 name: '', category: '', prepTime: '', 
                 ingredients: [{ name: '', amount: '' }], 
                 steps: '' 
             });
 
-            // ซิงค์ข้อมูลลง LocalStorage
-            useEffect(() => { localStorage.setItem('dose_sop_data_v2', JSON.stringify(items)); }, [items]);
-            useEffect(() => { localStorage.setItem('dose_categories', JSON.stringify(categories)); }, [categories]);
-            useEffect(() => { localStorage.setItem('dose_ingredients', JSON.stringify(masterIngredients)); }, [masterIngredients]);
+            // Sync to LocalStorage
+            useEffect(() => { localStorage.setItem('dose_sop_data_v3', JSON.stringify(items)); }, [items]);
+            useEffect(() => { localStorage.setItem('dose_categories_v3', JSON.stringify(categories)); }, [categories]);
+            useEffect(() => { localStorage.setItem('dose_ingredients_v3', JSON.stringify(masterIngredients)); }, [masterIngredients]);
+            useEffect(() => { localStorage.setItem('dose_staff_v3', JSON.stringify(staffList)); }, [staffList]);
+            useEffect(() => { localStorage.setItem('dose_queue_v3', JSON.stringify(queue)); }, [queue]);
 
             // --- Logic ---
             const filteredItems = useMemo(() => {
                 let filtered = items.filter(item => 
                     (activeTab === 'recipes' ? item.type === 'recipe' : item.type === 'task')
                 );
-                
                 if (selectedCategoryFilter !== 'All') {
                     filtered = filtered.filter(item => item.category === selectedCategoryFilter);
                 }
-
                 if (searchQuery) {
                     const query = searchQuery.toLowerCase();
-                    filtered = filtered.filter(item => 
-                        item.name.toLowerCase().includes(query)
-                    );
+                    filtered = filtered.filter(item => item.name.toLowerCase().includes(query));
                 }
                 return filtered;
             }, [items, activeTab, searchQuery, selectedCategoryFilter]);
@@ -112,7 +144,6 @@
             const openModal = (item = null) => {
                 if (item) {
                     setEditingItem(item.id);
-                    // ป้องกัน error ถ้าข้อมูลเก่าไม่มี ingredients เป็น array
                     const safeIngredients = Array.isArray(item.ingredients) ? item.ingredients : [{name: item.ingredients, amount: ''}];
                     setFormData({ ...item, ingredients: safeIngredients });
                 } else {
@@ -131,27 +162,18 @@
                 setFormData({ ...formData, ingredients: newIngredients });
             };
 
-            const addIngredientRow = () => {
-                setFormData({ ...formData, ingredients: [...formData.ingredients, { name: '', amount: '' }] });
-            };
-
-            const removeIngredientRow = (index) => {
-                const newIngredients = formData.ingredients.filter((_, i) => i !== index);
-                setFormData({ ...formData, ingredients: newIngredients });
-            };
+            const addIngredientRow = () => setFormData({ ...formData, ingredients: [...formData.ingredients, { name: '', amount: '' }] });
+            const removeIngredientRow = (index) => setFormData({ ...formData, ingredients: formData.ingredients.filter((_, i) => i !== index) });
 
             const saveItem = (e) => {
                 e.preventDefault();
-                // ล้างแถวส่วนผสมที่ว่างเปล่าออก
                 const cleanIngredients = formData.ingredients.filter(ing => ing.name.trim() !== '');
-                
                 const newItem = {
                     ...formData,
                     ingredients: cleanIngredients.length > 0 ? cleanIngredients : [{name: '-', amount: ''}],
                     id: editingItem || Date.now(),
                     type: activeTab === 'recipes' ? 'recipe' : 'task'
                 };
-
                 if (editingItem) {
                     setItems(items.map(item => item.id === editingItem ? newItem : item));
                 } else {
@@ -177,6 +199,65 @@
                 setConfirmDeleteId(null);
             };
 
+            // NEW: Staff Handlers
+            const addStaff = () => {
+                if (!newStaffName.trim()) return;
+                setStaffList([...staffList, { id: Date.now(), name: newStaffName }]);
+                setNewStaffName('');
+            };
+            const removeStaff = (id) => setStaffList(staffList.filter(s => s.id !== id));
+
+            // NEW: Category Management Handlers
+            const addCategory = () => {
+                if (!newCatName.trim() || categories.includes(newCatName.trim())) return;
+                setCategories([...categories, newCatName.trim()]);
+                setNewCatName('');
+            };
+            const removeCategory = (catToRemove) => {
+                setCategories(categories.filter(c => c !== catToRemove));
+            };
+            const startEditCategory = (cat) => {
+                setEditingCatName(cat);
+                setEditingCatValue(cat);
+            };
+            const saveEditCategory = () => {
+                if (!editingCatValue.trim() || (editingCatValue.trim() === editingCatName)) {
+                    setEditingCatName(null);
+                    return;
+                }
+                const newName = editingCatValue.trim();
+                // 1. อัปเดตรายชื่อหมวดหมู่
+                setCategories(categories.map(c => c === editingCatName ? newName : c));
+                // 2. อัปเดตสูตรทุกอันที่เคยใช้หมวดหมู่นี้ ให้เป็นชื่อใหม่
+                setItems(items.map(item => item.category === editingCatName ? { ...item, category: newName } : item));
+                
+                if (selectedCategoryFilter === editingCatName) setSelectedCategoryFilter(newName);
+                setEditingCatName(null);
+            };
+
+            // NEW: Queue Handlers
+            const addToQueue = (staffId) => {
+                const staff = staffList.find(s => s.id === staffId);
+                const newQueueItem = {
+                    qId: Date.now() + Math.random(), // Unique ID for duplicates
+                    item: assigningItem,
+                    staffName: staff ? staff.name : 'ไม่มีผู้รับผิดชอบ',
+                    status: 'pending',
+                    timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                };
+                setQueue([newQueueItem, ...queue]); // Add to top
+                setAssigningItem(null);
+                setActiveTab('queue'); // Auto switch to queue view
+            };
+
+            const markQueueDone = (qId) => {
+                setQueue(queue.map(q => q.qId === qId ? { ...q, status: 'done' } : q));
+            };
+            
+            const removeQueue = (qId) => {
+                setQueue(queue.filter(q => q.qId !== qId));
+            };
+
             // --- UI Components ---
             return (
                 <div className="min-h-screen pb-24">
@@ -184,40 +265,327 @@
                     <div className="glass-header sticky top-0 z-10 px-4 py-4 md:px-8 flex justify-between items-center shadow-sm">
                         <div>
                             <h1 className="text-2xl font-black text-amber-800 tracking-tight">☕ DOSE SOP</h1>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">Standard Operating Procedure</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">SOP & Task System</p>
+                        </div>
+                        <div className="flex gap-2">
+                            {/* Manage Categories Button */}
+                            <button 
+                                onClick={() => setIsCatManageModalOpen(true)}
+                                className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-amber-400 hover:text-amber-600 transition-colors shadow-sm flex items-center gap-2"
+                                title="จัดการหมวดหมู่"
+                            >
+                                📁 <span className="hidden md:inline">หมวดหมู่</span>
+                            </button>
+                            {/* Manage Staff Button */}
+                            <button 
+                                onClick={() => setIsStaffModalOpen(true)}
+                                className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-indigo-400 hover:text-indigo-600 transition-colors shadow-sm flex items-center gap-2"
+                                title="จัดการพนักงาน"
+                            >
+                                👥 <span className="hidden md:inline">พนักงาน</span>
+                            </button>
                         </div>
                     </div>
 
                     <div className="max-w-5xl mx-auto px-4 mt-6 space-y-5">
-                        {/* Toggle Tabs */}
-                        <div className="flex bg-slate-200 p-1.5 rounded-xl">
+                        {/* 3-Way Toggle Tabs */}
+                        <div className="flex bg-slate-200 p-1.5 rounded-xl overflow-x-auto hide-scrollbar">
                             <button 
                                 onClick={() => {setActiveTab('recipes'); setSelectedCategoryFilter('All');}}
-                                className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'recipes' ? 'bg-white text-amber-800 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}
+                                className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'recipes' ? 'bg-white text-amber-800 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}
                             >
                                 📖 สูตรเครื่องดื่ม
                             </button>
                             <button 
                                 onClick={() => {setActiveTab('tasks'); setSelectedCategoryFilter('All');}}
-                                className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-indigo-700 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}
+                                className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-indigo-700 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}
                             >
                                 ✅ หน้าที่ปฏิบัติงาน
                             </button>
+                            <button 
+                                onClick={() => setActiveTab('queue')}
+                                className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'queue' ? 'bg-white text-red-600 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}
+                            >
+                                🔔 คิวงาน 
+                                {queue.filter(q => q.status === 'pending').length > 0 && (
+                                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{queue.filter(q => q.status === 'pending').length}</span>
+                                )}
+                            </button>
                         </div>
 
-                        {/* Search & Filter Bar */}
-                        <div className="flex flex-col md:flex-row gap-3">
-                            <div className="relative flex-1">
-                                <span className="absolute left-4 top-3.5 text-slate-400">🔍</span>
-                                <input 
-                                    type="text" 
-                                    placeholder={`ค้นหา${activeTab === 'recipes' ? 'สูตรเครื่องดื่ม' : 'หน้าที่'}...`}
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-500/20 outline-none font-medium shadow-sm"
-                                />
+                        {/* Content Area */}
+                        {activeTab === 'queue' ? (
+                            /* --- QUEUE / KDS VIEW --- */
+                            <div className="space-y-4 animate-slide-up">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h2 className="text-xl font-black text-slate-800">📋 คิวงาน / ออเดอร์ปัจจุบัน</h2>
+                                    <button onClick={() => setQueue(queue.filter(q => q.status !== 'done'))} className="text-sm font-bold text-slate-400 hover:text-red-500">
+                                        ล้างคิวที่เสร็จแล้ว
+                                    </button>
+                                </div>
+                                
+                                {queue.length === 0 ? (
+                                    <div className="py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                                        ไม่มีคิวงานค้างอยู่ 🎉
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {queue.map(q => (
+                                            <div key={q.qId} className={`p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center gap-4 ${q.status === 'done' ? 'bg-slate-50 border-slate-200 opacity-60' : (q.item.type === 'recipe' ? 'bg-white border-amber-200 border-l-8 border-l-amber-500' : 'bg-white border-indigo-200 border-l-8 border-l-indigo-500')}`}>
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <h3 className={`font-black text-lg ${q.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{q.item.name}</h3>
+                                                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{q.timestamp}</span>
+                                                    </div>
+                                                    <div className="flex gap-2 items-center text-sm font-bold">
+                                                        <span className="text-slate-500">รับผิดชอบโดย:</span>
+                                                        <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md">{q.staffName}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    {q.status === 'pending' ? (
+                                                        <button onClick={() => markQueueDone(q.qId)} className="w-12 h-12 bg-green-100 hover:bg-green-500 text-green-600 hover:text-white rounded-xl flex items-center justify-center text-2xl transition-colors shadow-sm">
+                                                            ✓
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={() => removeQueue(q.qId)} className="w-12 h-12 bg-slate-200 hover:bg-red-500 text-slate-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors">
+                                                            🗑️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            
+                        ) : (
+                            /* --- SOP / RECIPES VIEW --- */
+                            <div className="animate-slide-up">
+                                {/* Search & Filter Bar */}
+                                <div className="flex flex-col md:flex-row gap-3 mb-4">
+                                    <div className="relative flex-1">
+                                        <span className="absolute left-4 top-3.5 text-slate-400">🔍</span>
+                                        <input 
+                                            type="text" 
+                                            placeholder={`ค้นหา${activeTab === 'recipes' ? 'สูตรเครื่องดื่ม' : 'หน้าที่'}...`}
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-amber-500 outline-none font-medium shadow-sm"
+                                        />
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={() => setIsFilterModalOpen(true)}
+                                        className="flex items-center justify-between md:justify-center gap-2 px-5 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-amber-500 hover:text-amber-700 transition-all shadow-sm whitespace-nowrap min-w-[180px]"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span>📁</span>
+                                            <span className={selectedCategoryFilter !== 'All' ? 'text-amber-600' : ''}>
+                                                {selectedCategoryFilter === 'All' ? 'ทุกหมวดหมู่' : selectedCategoryFilter}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-slate-400">▼</span>
+                                    </button>
+                                </div>
+
+                                {/* Item Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    {filteredItems.length === 0 && (
+                                        <div className="col-span-full py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                                            ไม่พบข้อมูล กรุณากดปุ่ม + เพื่อเพิ่มรายการ
+                                        </div>
+                                    )}
+                                    
+                                    {filteredItems.map(item => (
+                                        <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all relative overflow-hidden flex flex-col">
+                                            {/* Card Header */}
+                                            <div className="p-5 border-b border-slate-100">
+                                                <div className="absolute top-4 right-4 flex gap-1">
+                                                    <button onClick={() => openModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg transition-colors">✏️</button>
+                                                    <button onClick={() => setConfirmDeleteId(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors">🗑️</button>
+                                                </div>
+                                                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 ${activeTab === 'recipes' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                                                    {item.category}
+                                                </div>
+                                                <h3 className="text-xl font-black text-slate-800 mb-1 pr-16 leading-tight">{item.name}</h3>
+                                                <p className="text-sm font-bold text-slate-500">⏱️ {item.prepTime}</p>
+                                            </div>
+
+                                            {/* Card Body */}
+                                            <div className="p-5 flex-1 flex flex-col gap-4">
+                                                <div className={`p-4 rounded-xl border ${activeTab === 'recipes' ? 'bg-amber-50/50 border-amber-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                                                    <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                                                        <span>📌</span> {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}
+                                                    </h4>
+                                                    <ul className="grid grid-cols-1 gap-2">
+                                                        {item.ingredients.map((ing, idx) => (
+                                                            <li key={idx} className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
+                                                                <span className="font-semibold text-slate-700">{ing.name}</span>
+                                                                <span className="text-slate-500 bg-white px-2 py-0.5 rounded text-xs border border-slate-200">{ing.amount}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                                        {activeTab === 'recipes' ? 'วิธีทำ (Steps)' : 'ขั้นตอนปฏิบัติ'}
+                                                    </h4>
+                                                    <div className="text-sm font-medium text-slate-700 whitespace-pre-line leading-relaxed">
+                                                        {item.steps || '-'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* ACTION: Assign Button */}
+                                            <div className="p-3 border-t border-slate-100 bg-slate-50">
+                                                <button 
+                                                    onClick={() => setAssigningItem(item)}
+                                                    className={`w-full py-3 rounded-xl font-bold transition-all text-sm flex items-center justify-center gap-2 ${activeTab === 'recipes' ? 'bg-amber-100 text-amber-800 hover:bg-amber-500 hover:text-white' : 'bg-indigo-100 text-indigo-800 hover:bg-indigo-500 hover:text-white'}`}
+                                                >
+                                                    👉 ส่งเข้าคิว / มอบหมายงาน
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* FAB (Only show when not in Queue tab) */}
+                    {activeTab !== 'queue' && (
+                        <button 
+                            onClick={() => openModal()}
+                            className="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg shadow-slate-400/50 hover:bg-slate-700 hover:scale-105 transition-all text-2xl font-light z-40"
+                        >
+                            +
+                        </button>
+                    )}
+
+                    {/* --- CATEGORY MANAGEMENT MODAL --- */}
+                    {isCatManageModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h2 className="text-xl font-black text-slate-800">📁 จัดการหมวดหมู่</h2>
+                                    <button onClick={() => setIsCatManageModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                </div>
+                                <div className="p-5">
+                                    <div className="flex gap-2 mb-6">
+                                        <input 
+                                            type="text" 
+                                            value={newCatName} 
+                                            onChange={(e) => setNewCatName(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                                            className="flex-1 p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none"
+                                            placeholder="ชื่อหมวดหมู่ใหม่"
+                                        />
+                                        <button onClick={addCategory} className="px-5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600">เพิ่ม</button>
+                                    </div>
+                                    
+                                    <h4 className="text-sm font-bold text-slate-500 mb-3">รายชื่อหมวดหมู่ทั้งหมด</h4>
+                                    <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                                        {categories.length === 0 ? <p className="text-slate-400 text-center py-4 text-sm">ยังไม่มีหมวดหมู่</p> : null}
+                                        {categories.map(cat => (
+                                            <div key={cat} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                                {editingCatName === cat ? (
+                                                    <div className="flex gap-2 flex-1 mr-2">
+                                                        <input 
+                                                            type="text" 
+                                                            value={editingCatValue} 
+                                                            onChange={(e) => setEditingCatValue(e.target.value)}
+                                                            className="flex-1 p-1 px-2 border-2 border-amber-300 rounded outline-none w-full"
+                                                            autoFocus
+                                                        />
+                                                        <button onClick={saveEditCategory} className="text-white bg-green-500 px-3 py-1 rounded font-bold text-sm">บันทึก</button>
+                                                        <button onClick={() => setEditingCatName(null)} className="text-slate-500 bg-slate-200 px-3 py-1 rounded font-bold text-sm">ยกเลิก</button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <span className="font-bold text-slate-700">{cat}</span>
+                                                        <div className="flex gap-1">
+                                                            <button onClick={() => startEditCategory(cat)} className="text-blue-500 font-bold text-sm bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100">แก้</button>
+                                                            <button onClick={() => removeCategory(cat)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">ลบ</button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- STAFF MANAGEMENT MODAL --- */}
+                    {isStaffModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h2 className="text-xl font-black text-slate-800">👥 จัดการพนักงาน</h2>
+                                    <button onClick={() => setIsStaffModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                </div>
+                                <div className="p-5">
+                                    <div className="flex gap-2 mb-6">
+                                        <input 
+                                            type="text" 
+                                            value={newStaffName} 
+                                            onChange={(e) => setNewStaffName(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && addStaff()}
+                                            className="flex-1 p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none"
+                                            placeholder="ชื่อพนักงาน (เช่น จอย Barista)"
+                                        />
+                                        <button onClick={addStaff} className="px-5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">เพิ่ม</button>
+                                    </div>
+                                    
+                                    <h4 className="text-sm font-bold text-slate-500 mb-3">รายชื่อพนักงานทั้งหมด</h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                                        {staffList.length === 0 ? <p className="text-slate-400 text-center py-4 text-sm">ยังไม่มีรายชื่อพนักงาน</p> : null}
+                                        {staffList.map(staff => (
+                                            <div key={staff.id} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                                                <span className="font-bold text-slate-700">{staff.name}</span>
+                                                <button onClick={() => removeStaff(staff.id)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">ลบ</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- ASSIGN TASK MODAL (Select Staff) --- */}
+                    {assigningItem && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-end md:items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
+                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h3 className="text-lg font-black text-slate-800">ส่งเข้าคิว: {assigningItem.name}</h3>
+                                    <button onClick={() => setAssigningItem(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                </div>
+                                <div className="p-5">
+                                    <p className="text-sm font-bold text-slate-500 mb-4">ระบุผู้รับผิดชอบ (Assign to):</p>
+                                    <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                                        {staffList.map(staff => (
+                                            <button 
+                                                key={staff.id}
+                                                onClick={() => addToQueue(staff.id)}
+                                                className="p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-indigo-500 hover:text-indigo-700 text-left flex justify-between items-center transition-all"
+                                            >
+                                                {staff.name}
+                                                <span className="text-slate-300">👉</span>
+                                            </button>
+                                        ))}
+                                        {staffList.length === 0 && (
+                                            <p className="text-slate-400 text-sm text-center py-2">กรุณาเพิ่มพนักงานในเมนู "จัดการพนักงาน" ก่อน</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ... (Modal Add/Edit, Quick Add, Delete Modal, Filter Modal from previous code remain unchanged structurally, but included in the system) ... */}
+                    
                             {/* Category Pop-up Button (เปลี่ยนจากแบบเลื่อนแนวนอน) */}
                             <button 
                                 onClick={() => setIsFilterModalOpen(true)}
@@ -340,7 +708,7 @@
                                             <button type="button" onClick={() => setQuickAddType('ingredient')} className="text-xs font-bold text-blue-600 hover:text-blue-700">+ เพิ่มชื่อส่วนผสมในระบบ</button>
                                         </div>
                                         
-                                        {formData.ingredients.map((ing, index) => (
+                                        {Array.isArray(formData.ingredients) && formData.ingredients.map((ing, index) => (
                                             <div key={index} className="flex gap-2 mb-2 items-start">
                                                 <select 
                                                     value={ing.name} 
@@ -365,91 +733,6 @@
                                                 </button>
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addIngredientRow} className="mt-2 w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 font-bold rounded-lg hover:bg-slate-100 transition-colors text-sm">
-                                            + เพิ่มแถวส่วนผสม
-                                        </button>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">{activeTab === 'recipes' ? 'ขั้นตอนวิธีทำ' : 'ขั้นตอนปฏิบัติ'}</label>
-                                        <textarea required rows="4" value={formData.steps} onChange={e => setFormData({...formData, steps: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none resize-none" placeholder="1. ...&#10;2. ..."></textarea>
-                                    </div>
-                                </form>
-                                <div className="p-5 border-t border-slate-100 bg-slate-50">
-                                    <button onClick={saveItem} className="w-full py-4 bg-slate-800 text-white font-bold text-lg rounded-xl hover:bg-slate-700 transition-colors shadow-md">
-                                        💾 บันทึกข้อมูล
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- Quick Add Modal (Category / Ingredient) --- */}
-                    {quickAddType && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4">
-                            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm">
-                                <h3 className="text-lg font-bold text-slate-800 mb-4">
-                                    {quickAddType === 'category' ? 'เพิ่มหมวดหมู่ใหม่' : 'เพิ่มชื่อส่วนผสมใหม่'}
-                                </h3>
-                                <input 
-                                    autoFocus
-                                    type="text" 
-                                    value={quickAddValue} 
-                                    onChange={(e) => setQuickAddValue(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
-                                    className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none mb-4"
-                                    placeholder="พิมพ์ชื่อที่ต้องการ..."
-                                />
-                                <div className="flex gap-3">
-                                    <button onClick={() => setQuickAddType(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
-                                    <button onClick={handleQuickAdd} className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600">ยืนยันเพิ่ม</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- Delete Confirmation Modal --- */}
-                    {confirmDeleteId && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-center justify-center p-4">
-                            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center">
-                                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">⚠️</div>
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">ยืนยันการลบ?</h3>
-                                <p className="text-slate-500 mb-6">ข้อมูลที่ลบแล้วจะไม่สามารถกู้คืนได้</p>
-                                <div className="flex gap-3">
-                                    <button onClick={() => setConfirmDeleteId(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
-                                    <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600">ลบทิ้งทันที</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* --- Filter Category Pop-up Modal --- */}
-                    {isFilterModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[60] flex items-end md:items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-slide-up flex flex-col max-h-[80vh]">
-                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                    <h3 className="text-lg font-black text-slate-800">📁 เลือกหมวดหมู่</h3>
-                                    <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
-                                </div>
-                                <div className="p-5 overflow-y-auto hide-scrollbar">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <button 
-                                            onClick={() => { setSelectedCategoryFilter('All'); setIsFilterModalOpen(false); }}
-                                            className={`p-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-between ${selectedCategoryFilter === 'All' ? 'bg-slate-800 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'}`}
-                                        >
-                                            แสดงทั้งหมด
-                                            {selectedCategoryFilter === 'All' && <span>✓</span>}
-                                        </button>
-                                        {categories.map(cat => (
-                                            <button 
-                                                key={cat}
-                                                onClick={() => { setSelectedCategoryFilter(cat); setIsFilterModalOpen(false); }}
-                                                className={`p-4 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-between text-left ${selectedCategoryFilter === cat ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'}`}
-                                            >
-                                                {cat}
-                                                {selectedCategoryFilter === cat && <span className="text-amber-600 font-black">✓</span>}
-                                            </button>
-                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -459,8 +742,62 @@
             );
         }
 
+        // --- Error Boundary (ระบบป้องกันหน้าจอขาวจาก Tech Lead) ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) { 
+                super(props); 
+                this.state = { hasError: false, error: null }; 
+            }
+            
+            static getDerivedStateFromError(error) { 
+                return { hasError: true, error }; 
+            }
+            
+            componentDidCatch(error, errorInfo) { 
+                console.error("DOSE SOP Error Caught:", error, errorInfo); 
+            }
+            
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+                            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 border-red-500">
+                                <div className="text-6xl mb-4">🚨</div>
+                                <h1 className="text-2xl font-black text-slate-800 mb-2">ระบบขัดข้องชั่วคราว</h1>
+                                <p className="text-slate-500 mb-6 text-sm">
+                                    มีการแสดงผลข้อมูลบางส่วนผิดพลาด (เช่น ข้อมูลเก่าไม่ตรงกับโครงสร้างใหม่) ระบบทำการล็อคหน้าจอเพื่อป้องกันหน้าจอขาวแล้ว
+                                </p>
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 mb-3 shadow-md"
+                                >
+                                    🔄 รีเฟรชหน้าจอ
+                                </button>
+                                <button 
+                                    onClick={() => { 
+                                        if(window.confirm('คำเตือน: การล้างข้อมูลจะทำให้สูตรทั้งหมดที่เซฟไว้หายไป ยืนยันหรือไม่?')) {
+                                            localStorage.clear(); 
+                                            window.location.reload(); 
+                                        }
+                                    }} 
+                                    className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 border border-red-200"
+                                >
+                                    🗑️ ล้างข้อมูลทั้งหมด (Reset System)
+                                </button>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 </html>
