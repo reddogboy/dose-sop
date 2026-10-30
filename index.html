@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>DOSE Coffee | SOP & Recipes</title>
     
-    <!-- 1. ใช้ CDN ของ Cloudflare ที่เสถียรที่สุดแทน unpkg -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
@@ -16,137 +15,130 @@
         .glass-header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes slideDownToast { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-toast { animation: slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 <body class="text-slate-800">
     
-    <!-- พื้นที่หลักสำหรับ React -->
     <div id="root"></div>
 
-    <!-- ปราการด่านสุดท้าย (Fail-Safe UI) จะทำงานถ้า React โหลดไม่สำเร็จใน 2.5 วินาที -->
+    <!-- Fail-Safe UI -->
     <div id="critical-fallback" style="display: none; min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #f1f5f9; padding: 20px; text-align: center;">
         <div style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 8px solid #ef4444; max-width: 400px; width: 100%;">
             <div style="font-size: 4rem; margin-bottom: 1rem;">🚨</div>
             <h1 style="font-size: 1.5rem; font-weight: 900; color: #1e293b; margin-bottom: 0.5rem;">ระบบโหลดไม่สำเร็จ</h1>
-            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">
-                อาจเกิดจากโครงสร้างข้อมูลเก่าขัดข้อง หรืออินเทอร์เน็ตบล็อกการโหลดไลบรารี กรุณากดปุ่มด้านล่างเพื่อรีเซ็ตระบบ
-            </p>
-            <button onclick="forceResetSystem()" style="width: 100%; padding: 12px; background-color: #ef4444; color: white; border: none; border-radius: 0.5rem; font-weight: bold; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);">
+            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">อาจเกิดจากโครงสร้างข้อมูลเก่าขัดข้อง กรุณากดปุ่มด้านล่างเพื่อรีเซ็ตระบบ</p>
+            <button onclick="forceResetSystem()" style="width: 100%; padding: 12px; background-color: #ef4444; color: white; border: none; border-radius: 0.5rem; font-weight: bold; cursor: pointer;">
                 🔄 ล้างข้อมูลทั้งหมดและเริ่มใหม่
             </button>
         </div>
     </div>
-
-    <!-- Vanilla JS: ระบบกู้ภัยฉุกเฉิน (อยู่รอดแม้ React พัง) -->
     <script>
-        function forceResetSystem() {
-            localStorage.clear();
-            window.location.reload();
-        }
-
-        // จับเวลา ถ้า root ยังไม่มีลูก (ยังว่างเปล่า) หลังผ่านไป 2.5 วิ แปลว่าจอขาวชัวร์ๆ ให้โชว์ Fallback
+        function forceResetSystem() { localStorage.clear(); window.location.reload(); }
         const fallbackTimer = setTimeout(() => {
             const root = document.getElementById('root');
-            if (!root || root.innerHTML.trim() === '') {
-                document.getElementById('critical-fallback').style.display = 'flex';
-            } else {
-                document.getElementById('critical-fallback').style.display = 'none';
-            }
+            if (!root || root.innerHTML.trim() === '') document.getElementById('critical-fallback').style.display = 'flex';
         }, 2500);
     </script>
 
-    <!-- React Application -->
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // --- Safe JSON Parser (ดักจับข้อมูลเป็นพิษ) ---
         function safeStorageGet(key, fallbackValue) {
             try {
                 const item = localStorage.getItem(key);
                 return item ? JSON.parse(item) : fallbackValue;
-            } catch (error) {
-                console.error(`🚨 Data Corruption detected in ${key}:`, error);
-                return fallbackValue;
-            }
+            } catch (error) { return fallbackValue; }
         }
 
-        // --- Mock Data ---
         const initialCategories = ['Coffee (Milk)', 'Coffee (Clear)', 'Tea', 'Non-Coffee', 'Bakery', 'Opening', 'Closing', 'Cleaning'];
-        const initialIngredientsMaster = ['Espresso Shot', 'นมเย็นจัด', 'นมโอ๊ต', 'นมสด', 'ไซรัปวานิลลา', 'ไซรัปคาราเมล', 'น้ำส้ม Yuzu', 'โซดา', 'น้ำแข็ง', 'ผงมัทฉะ', 'ครัวซองต์เนยสด', 'กุญแจร้าน', 'เครื่องชงกาแฟ', 'ผงทำความสะอาด', 'ผ้าเช็ดบาร์', 'เครื่องคิดเงิน'];
+        const initialIngredientsMaster = ['Espresso Shot', 'นมเย็นจัด', 'นมโอ๊ต', 'นมสด', 'ไซรัปวานิลลา', 'น้ำส้ม Yuzu', 'โซดา', 'น้ำแข็ง', 'ผงมัทฉะ', 'ครัวซองต์'];
         const initialStaff = [{id: 1, name: 'บอย (Head Barista)'}, {id: 2, name: 'แนน (Cashier)'}, {id: 3, name: 'จอย (Barista)'}];
-
         const initialItems = [
-            { id: 1, type: 'recipe', category: 'Coffee (Milk)', name: 'DOSE Signature Dirty', prepTime: '2 mins', ingredients: [{name: 'นมเย็นจัด', amount: '90ml'}, {name: 'Espresso Shot', amount: '18g'}, {name: 'ไซรัปวานิลลา', amount: '5ml'}], steps: '1. แช่แก้วให้เย็นจัด\n2. เทไซรัปและนมลงในแก้ว\n3. สกัดช็อต Ristretto ให้ไหลท็อปบนผิวนมเบาๆ\n4. เสิร์ฟทันที (ห้ามคน)' },
-            { id: 2, type: 'recipe', category: 'Coffee (Clear)', name: 'Iced Yuzu Americano', prepTime: '1.5 mins', ingredients: [{name: 'Espresso Shot', amount: '18g'}, {name: 'น้ำส้ม Yuzu', amount: '45ml'}, {name: 'โซดา', amount: '100ml'}, {name: 'น้ำแข็ง', amount: 'เต็มแก้ว'}], steps: '1. ผสมน้ำส้ม Yuzu กับโซดาลงในแก้ว\n2. ใส่น้ำแข็ง\n3. เทช็อต Espresso ลงด้านบนให้แยกชั้น' },
-            { id: 3, type: 'task', category: 'Opening', name: 'หน้าที่เปิดร้าน (Morning Shift)', prepTime: '07:00 - 08:00', ingredients: [{name: 'กุญแจร้าน', amount: '1 ดอก'}, {name: 'เครื่องชงกาแฟ', amount: 'พร้อมใช้งาน'}], steps: '1. เปิดแอร์และไฟโซนลูกค้า\n2. เปิดเครื่องชงกาแฟ (ไล่น้ำร้อน 1 รอบ)\n3. Calibrate เครื่องบดกาแฟ\n4. นับเงินทอนในลิ้นชัก' }
+            { id: 1, type: 'recipe', category: 'Coffee (Milk)', name: 'DOSE Signature Dirty', ingredients: [{name: 'นมเย็นจัด', amount: '90ml'}, {name: 'Espresso Shot', amount: '18g'}], steps: '1. แช่แก้วให้เย็นจัด\n2. เทไซรัปและนมลงในแก้ว\n3. สกัดช็อต Ristretto ให้ไหลท็อปบนผิวนมเบาๆ' }
         ];
 
         function App() {
-            // เคลียร์ Timer ฉุกเฉิน เพราะ React โหลดสำเร็จแล้ว
-            useEffect(() => {
-                clearTimeout(fallbackTimer);
-                const fallbackEl = document.getElementById('critical-fallback');
-                if(fallbackEl) fallbackEl.style.display = 'none';
-            }, []);
+            useEffect(() => { clearTimeout(fallbackTimer); const fallbackEl = document.getElementById('critical-fallback'); if(fallbackEl) fallbackEl.style.display = 'none'; }, []);
 
-            // --- State Management (ใช้ safeStorageGet แทน JSON.parse ตรงๆ) ---
+            // States
             const [activeTab, setActiveTab] = useState('recipes'); 
             const [searchQuery, setSearchQuery] = useState('');
             const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
+            const [queueStaffFilter, setQueueStaffFilter] = useState('All');
 
-            const [items, setItems] = useState(() => safeStorageGet('dose_sop_data_v6', initialItems));
-            const [categories, setCategories] = useState(() => safeStorageGet('dose_categories_v6', initialCategories));
-            const [masterIngredients, setMasterIngredients] = useState(() => safeStorageGet('dose_ingredients_v6', initialIngredientsMaster));
-            const [staffList, setStaffList] = useState(() => safeStorageGet('dose_staff_v6', initialStaff));
-            const [queue, setQueue] = useState(() => safeStorageGet('dose_queue_v6', []));
+            const [items, setItems] = useState(() => safeStorageGet('dose_sop_data_v8', initialItems));
+            const [categories, setCategories] = useState(() => safeStorageGet('dose_categories_v8', initialCategories));
+            const [masterIngredients, setMasterIngredients] = useState(() => safeStorageGet('dose_ingredients_v8', initialIngredientsMaster));
+            const [staffList, setStaffList] = useState(() => safeStorageGet('dose_staff_v8', initialStaff));
+            const [queue, setQueue] = useState(() => safeStorageGet('dose_queue_v8', []));
 
-            // Modals State
+            // Modals & UI States
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [editingItem, setEditingItem] = useState(null);
             const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-            
             const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
             const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
             const [isCatManageModalOpen, setIsCatManageModalOpen] = useState(false);
             const [assigningItem, setAssigningItem] = useState(null);
-            
             const [editingQueueId, setEditingQueueId] = useState(null);
             const [queueEditData, setQueueEditData] = useState({ itemId: '', staffName: '' });
-            
-            const [quickAddType, setQuickAddType] = useState(null); 
-            const [quickAddValue, setQuickAddValue] = useState('');
+            const [toast, setToast] = useState(null);
+
+            // Inputs
             const [newStaffName, setNewStaffName] = useState('');
             const [newCatName, setNewCatName] = useState('');
             const [editingCatName, setEditingCatName] = useState(null);
             const [editingCatValue, setEditingCatValue] = useState('');
+            const [formData, setFormData] = useState({ name: '', category: '', ingredients: [{ name: '', amount: '' }], steps: '' });
+            const [quickTaskName, setQuickTaskName] = useState('');
+            const [quickTaskStaff, setQuickTaskStaff] = useState('');
 
-            const [formData, setFormData] = useState({ name: '', category: '', prepTime: '', ingredients: [{ name: '', amount: '' }], steps: '' });
+            // Sync
+            useEffect(() => { localStorage.setItem('dose_sop_data_v8', JSON.stringify(items)); }, [items]);
+            useEffect(() => { localStorage.setItem('dose_categories_v8', JSON.stringify(categories)); }, [categories]);
+            useEffect(() => { localStorage.setItem('dose_ingredients_v8', JSON.stringify(masterIngredients)); }, [masterIngredients]);
+            useEffect(() => { localStorage.setItem('dose_staff_v8', JSON.stringify(staffList)); }, [staffList]);
+            useEffect(() => { localStorage.setItem('dose_queue_v8', JSON.stringify(queue)); }, [queue]);
 
-            // Sync to LocalStorage (เปลี่ยนคีย์เป็น v6 เพื่อบังคับรีเซ็ตของเก่าที่พัง)
-            useEffect(() => { localStorage.setItem('dose_sop_data_v6', JSON.stringify(items)); }, [items]);
-            useEffect(() => { localStorage.setItem('dose_categories_v6', JSON.stringify(categories)); }, [categories]);
-            useEffect(() => { localStorage.setItem('dose_ingredients_v6', JSON.stringify(masterIngredients)); }, [masterIngredients]);
-            useEffect(() => { localStorage.setItem('dose_staff_v6', JSON.stringify(staffList)); }, [staffList]);
-            useEffect(() => { localStorage.setItem('dose_queue_v6', JSON.stringify(queue)); }, [queue]);
+            // Helper: Show Toast
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(null), 3000);
+            };
 
-            // --- Logic ---
+            // Derived Data
             const filteredItems = useMemo(() => {
                 let filtered = items.filter(item => (activeTab === 'recipes' ? item.type === 'recipe' : item.type === 'task'));
                 if (selectedCategoryFilter !== 'All') filtered = filtered.filter(item => item.category === selectedCategoryFilter);
-                if (searchQuery) filtered = filtered.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()));
+                if (searchQuery) filtered = filtered.filter(item => (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
                 return filtered;
             }, [items, activeTab, searchQuery, selectedCategoryFilter]);
+
+            // Queue Filtering & Sorting (Priority on top)
+            const displayQueue = useMemo(() => {
+                let q = queue;
+                if (queueStaffFilter !== 'All') q = q.filter(item => item.staffName === queueStaffFilter);
+                return q.sort((a, b) => {
+                    if (a.status === 'done' && b.status !== 'done') return 1;
+                    if (a.status !== 'done' && b.status === 'done') return -1;
+                    if (a.isPriority && !b.isPriority) return -1;
+                    if (!a.isPriority && b.isPriority) return 1;
+                    return 0;
+                });
+            }, [queue, queueStaffFilter]);
 
             // Handlers
             const openModal = (item = null) => {
                 if (item) {
                     setEditingItem(item.id);
-                    const safeIngredients = Array.isArray(item.ingredients) ? item.ingredients : [{name: item.ingredients, amount: ''}];
+                    const safeIngredients = Array.isArray(item.ingredients) && item.ingredients.length > 0 ? item.ingredients : [{name: '', amount: ''}];
                     setFormData({ ...item, ingredients: safeIngredients });
                 } else {
                     setEditingItem(null);
-                    setFormData({ name: '', category: categories[0] || '', prepTime: '', ingredients: [{ name: '', amount: '' }], steps: '' });
+                    setFormData({ name: '', category: '', ingredients: [{ name: '', amount: '' }], steps: '' });
                 }
                 setIsModalOpen(true);
             };
@@ -162,15 +154,23 @@
 
             const saveItem = (e) => {
                 e.preventDefault();
-                const cleanIngredients = formData.ingredients.filter(ing => ing.name.trim() !== '');
-                const newItem = { ...formData, ingredients: cleanIngredients.length > 0 ? cleanIngredients : [{name: '-', amount: ''}], id: editingItem || Date.now(), type: activeTab === 'recipes' ? 'recipe' : 'task' };
+                const cleanIngredients = formData.ingredients.filter(ing => ing.name && ing.name.trim() !== '');
+                const newItem = { 
+                    ...formData, 
+                    name: formData.name.trim() || 'รายการไม่มีชื่อ',
+                    category: formData.category || 'ไม่ระบุหมวดหมู่',
+                    ingredients: cleanIngredients, 
+                    id: editingItem || Date.now(), 
+                    type: activeTab === 'recipes' ? 'recipe' : 'task' 
+                };
                 if (editingItem) setItems(items.map(item => item.id === editingItem ? newItem : item));
                 else setItems([newItem, ...items]);
                 setIsModalOpen(false);
+                showToast(`✅ บันทึก "${newItem.name}" เรียบร้อย`);
             };
 
-            const executeDelete = () => { setItems(items.filter(item => item.id !== confirmDeleteId)); setConfirmDeleteId(null); };
-
+            const executeDelete = () => { setItems(items.filter(item => item.id !== confirmDeleteId)); setConfirmDeleteId(null); showToast('🗑️ ลบรายการสำเร็จ'); };
+            
             const addStaff = () => { if (newStaffName.trim()) { setStaffList([...staffList, { id: Date.now(), name: newStaffName }]); setNewStaffName(''); } };
             const removeStaff = (id) => setStaffList(staffList.filter(s => s.id !== id));
 
@@ -192,44 +192,59 @@
                     qId: Date.now() + Math.random(),
                     item: assigningItem, 
                     staffName: staff ? staff.name : 'ไม่มีผู้รับผิดชอบ', 
-                    status: 'pending', 
+                    status: 'pending',
+                    isPriority: false,
                     timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) 
                 };
                 setQueue([newQueueItem, ...queue]);
                 setAssigningItem(null); 
                 setActiveTab('queue');
+                showToast(`✅ ส่ง "${assigningItem.name}" เข้าคิวแล้ว!`);
+            };
+
+            const addAdHocTask = (e) => {
+                e.preventDefault();
+                if(!quickTaskName.trim()) return;
+                const newQueueItem = { 
+                    qId: Date.now() + Math.random(),
+                    item: { name: quickTaskName.trim(), type: 'task', id: 'adhoc' }, 
+                    staffName: quickTaskStaff || 'ไม่มีผู้รับผิดชอบ', 
+                    status: 'pending',
+                    isPriority: false,
+                    timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) 
+                };
+                setQueue([newQueueItem, ...queue]);
+                setQuickTaskName('');
+                showToast(`⚡ เพิ่มงานด่วน "${quickTaskName}" แล้ว!`);
+            };
+
+            const togglePriority = (qId) => {
+                setQueue(queue.map(q => q.qId === qId ? { ...q, isPriority: !q.isPriority } : q));
+                showToast(`🚨 อัปเดตความสำคัญเรียบร้อย`);
             };
 
             const markQueueDone = (qId) => setQueue(queue.map(q => q.qId === qId ? { ...q, status: 'done' } : q));
             const removeQueue = (qId) => setQueue(queue.filter(q => q.qId !== qId));
             const undoQueueDone = (qId) => setQueue(queue.map(q => q.qId === qId ? { ...q, status: 'pending' } : q));
 
-            const openEditQueue = (q) => {
-                setEditingQueueId(q.qId);
-                setQueueEditData({ itemId: q.item.id, staffName: q.staffName });
-            };
-
-            const saveQueueEdit = (e) => {
-                e.preventDefault();
-                const updatedItem = items.find(i => i.id === Number(queueEditData.itemId));
-                if (!updatedItem) return;
-                setQueue(queue.map(q => q.qId === editingQueueId ? { ...q, item: updatedItem, staffName: queueEditData.staffName } : q));
-                setEditingQueueId(null);
-            };
-
-            // --- Render UI ---
             return (
-                <div className="min-h-screen pb-24">
+                <div className="min-h-screen pb-24 relative">
+                    {toast && (
+                        <div className="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center gap-2 z-[100] animate-toast whitespace-nowrap">
+                            {toast}
+                        </div>
+                    )}
+
                     <div className="glass-header sticky top-0 z-10 px-4 py-4 md:px-8 flex justify-between items-center shadow-sm">
                         <div>
                             <h1 className="text-2xl font-black text-amber-800 tracking-tight">☕ DOSE SOP</h1>
                             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">SOP & Task System</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setIsCatManageModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-amber-400 hover:text-amber-600 transition-colors shadow-sm flex items-center gap-2">
+                            <button onClick={() => setIsCatManageModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-amber-400 hover:text-amber-600 transition-colors shadow-sm">
                                 📁 <span className="hidden md:inline">หมวดหมู่</span>
                             </button>
-                            <button onClick={() => setIsStaffModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-indigo-400 hover:text-indigo-600 transition-colors shadow-sm flex items-center gap-2">
+                            <button onClick={() => setIsStaffModalOpen(true)} className="bg-white border-2 border-slate-200 text-slate-600 p-2 md:px-4 md:py-2 rounded-xl font-bold hover:border-indigo-400 hover:text-indigo-600 transition-colors shadow-sm">
                                 👥 <span className="hidden md:inline">พนักงาน</span>
                             </button>
                         </div>
@@ -237,8 +252,8 @@
 
                     <div className="max-w-5xl mx-auto px-4 mt-6 space-y-5">
                         <div className="flex bg-slate-200 p-1.5 rounded-xl overflow-x-auto hide-scrollbar">
-                            <button onClick={() => {setActiveTab('recipes'); setSelectedCategoryFilter('All');}} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'recipes' ? 'bg-white text-amber-800 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>📖 สูตรเครื่องดื่ม</button>
-                            <button onClick={() => {setActiveTab('tasks'); setSelectedCategoryFilter('All');}} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-indigo-700 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>✅ หน้าที่ปฏิบัติงาน</button>
+                            <button onClick={() => setActiveTab('recipes')} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'recipes' ? 'bg-white text-amber-800 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>📖 สูตร</button>
+                            <button onClick={() => setActiveTab('tasks')} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-indigo-700 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>✅ หน้าที่</button>
                             <button onClick={() => setActiveTab('queue')} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'queue' ? 'bg-white text-red-600 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>
                                 🔔 คิวงาน {queue.filter(q => q.status === 'pending').length > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{queue.filter(q => q.status === 'pending').length}</span>}
                             </button>
@@ -246,37 +261,62 @@
 
                         {activeTab === 'queue' ? (
                             <div className="space-y-4 animate-slide-up">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h2 className="text-xl font-black text-slate-800">📋 คิวงานปัจจุบัน</h2>
-                                    <button onClick={() => setQueue(queue.filter(q => q.status !== 'done'))} className="text-sm font-bold text-slate-400 hover:text-red-500">ล้างคิวที่เสร็จแล้ว</button>
+                                <div className="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col md:flex-row gap-3">
+                                    <form onSubmit={addAdHocTask} className="flex-1 flex gap-2">
+                                        <input type="text" placeholder="⚡ งานด่วน (เช่น เช็ดโต๊ะ)..." value={quickTaskName} onChange={e=>setQuickTaskName(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-500 outline-none text-sm font-bold" />
+                                        <select value={quickTaskStaff} onChange={e=>setQuickTaskStaff(e.target.value)} className="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-bold max-w-[120px]">
+                                            <option value="">ใครก็ได้</option>
+                                            {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                        </select>
+                                        <button type="submit" className="bg-amber-500 text-white px-4 rounded-xl font-bold hover:bg-amber-600">เพิ่ม</button>
+                                    </form>
+                                    
+                                    <div className="md:border-l-2 md:border-slate-100 md:pl-3 flex items-center">
+                                        <select value={queueStaffFilter} onChange={e=>setQueueStaffFilter(e.target.value)} className="w-full md:w-auto p-3 bg-white border border-slate-300 text-indigo-700 rounded-xl outline-none text-sm font-bold">
+                                            <option value="All">🔍 ดูคิวงานทั้งหมด</option>
+                                            {staffList.map(s => <option key={s.id} value={s.name}>ดูงานของ: {s.name}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
-                                {queue.length === 0 ? (
-                                    <div className="py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">ไม่มีคิวงานค้างอยู่ 🎉</div>
+
+                                <div className="flex justify-between items-center mb-2 mt-4">
+                                    <h2 className="text-xl font-black text-slate-800">📋 คิวงานปัจจุบัน</h2>
+                                    <button onClick={() => {setQueue(queue.filter(q => q.status !== 'done')); showToast('ล้างคิวสำเร็จ');}} className="text-sm font-bold text-slate-400 hover:text-red-500">ล้างคิวที่เสร็จแล้ว</button>
+                                </div>
+                                
+                                {displayQueue.length === 0 ? (
+                                    <div className="py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">ไม่มีคิวงาน 🎉</div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {queue.map(q => (
-                                            <div key={q.qId} className={`p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center gap-4 ${q.status === 'done' ? 'bg-slate-50 border-slate-200 opacity-60' : (q.item?.type === 'recipe' ? 'bg-white border-amber-200 border-l-8 border-l-amber-500' : 'bg-white border-indigo-200 border-l-8 border-l-indigo-500')}`}>
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <h3 className={`font-black text-lg ${q.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{q.item?.name || 'ลบข้อมูลไปแล้ว'}</h3>
-                                                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{q.timestamp}</span>
+                                        {displayQueue.map(q => (
+                                            <div key={q.qId} className={`p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center gap-3 
+                                                ${q.status === 'done' ? 'bg-slate-50 border-slate-200 opacity-60' : 
+                                                (q.isPriority ? 'bg-red-50 border-red-300 border-l-8 border-l-red-500' : 'bg-white border-slate-200 border-l-8 border-l-slate-400')}
+                                            `}>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between items-start mb-1 gap-2">
+                                                        <h3 className={`font-black text-lg truncate ${q.status === 'done' ? 'line-through text-slate-400' : (q.isPriority ? 'text-red-700' : 'text-slate-800')}`}>
+                                                            {q.item?.name || 'ลบข้อมูลไปแล้ว'}
+                                                        </h3>
+                                                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md shrink-0">{q.timestamp}</span>
                                                     </div>
-                                                    <div className="flex gap-2 items-center text-sm font-bold">
-                                                        <span className="text-slate-500">รับผิดชอบ:</span>
-                                                        <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md">{q.staffName}</span>
+                                                    <div className="flex gap-2 items-center text-sm font-bold mt-2">
+                                                        <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md truncate max-w-[120px]">{q.staffName}</span>
+                                                        {q.status === 'pending' && (
+                                                            <button onClick={() => togglePriority(q.qId)} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${q.isPriority ? 'bg-red-200 text-red-700' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}>
+                                                                {q.isPriority ? '🚨 ด่วนสุด' : '📌 ปักหมุด'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 shrink-0">
                                                     {q.status === 'pending' ? (
-                                                        <React.Fragment>
-                                                            <button onClick={() => openEditQueue(q)} className="w-12 h-12 bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors shadow-sm" title="แก้ไข">✏️</button>
-                                                            <button onClick={() => markQueueDone(q.qId)} className="w-12 h-12 bg-green-100 hover:bg-green-500 text-green-600 hover:text-white rounded-xl flex items-center justify-center text-2xl transition-colors shadow-sm" title="เสร็จแล้ว">✓</button>
-                                                        </React.Fragment>
+                                                        <button onClick={() => markQueueDone(q.qId)} className="w-12 h-12 bg-green-100 hover:bg-green-500 text-green-600 hover:text-white rounded-xl flex items-center justify-center text-2xl shadow-sm transition-colors">✓</button>
                                                     ) : (
-                                                        <React.Fragment>
-                                                            <button onClick={() => undoQueueDone(q.qId)} className="w-12 h-12 bg-amber-50 hover:bg-amber-500 text-amber-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors shadow-sm" title="ย้อนกลับ">↩️</button>
-                                                            <button onClick={() => removeQueue(q.qId)} className="w-12 h-12 bg-slate-200 hover:bg-red-500 text-slate-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors" title="ลบทิ้ง">🗑️</button>
-                                                        </React.Fragment>
+                                                        <>
+                                                            <button onClick={() => undoQueueDone(q.qId)} className="w-10 h-10 bg-amber-50 hover:bg-amber-500 text-amber-500 hover:text-white rounded-xl flex items-center justify-center text-lg shadow-sm">↩️</button>
+                                                            <button onClick={() => removeQueue(q.qId)} className="w-10 h-10 bg-slate-200 hover:bg-red-500 text-slate-500 hover:text-white rounded-xl flex items-center justify-center text-lg">🗑️</button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -291,42 +331,41 @@
                                         <span className="absolute left-4 top-3.5 text-slate-400">🔍</span>
                                         <input type="text" placeholder={`ค้นหา${activeTab === 'recipes' ? 'สูตรเครื่องดื่ม' : 'หน้าที่'}...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-white border-2 border-slate-200 rounded-xl focus:border-amber-500 outline-none font-medium shadow-sm" />
                                     </div>
-                                    <button onClick={() => setIsFilterModalOpen(true)} className="flex items-center justify-between md:justify-center gap-2 px-5 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-amber-500 hover:text-amber-700 transition-all shadow-sm whitespace-nowrap min-w-[180px]">
+                                    <button onClick={() => setIsFilterModalOpen(true)} className="flex items-center justify-between md:justify-center gap-2 px-5 py-3 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-amber-500 hover:text-amber-700 shadow-sm whitespace-nowrap min-w-[180px]">
                                         <div className="flex items-center gap-2"><span>📁</span> <span className={selectedCategoryFilter !== 'All' ? 'text-amber-600' : ''}>{selectedCategoryFilter === 'All' ? 'ทุกหมวดหมู่' : selectedCategoryFilter}</span></div>
-                                        <span className="text-xs text-slate-400">▼</span>
                                     </button>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    {filteredItems.length === 0 && (
-                                        <div className="col-span-full py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">ไม่พบข้อมูล กรุณากดปุ่ม + เพื่อเพิ่มรายการ</div>
-                                    )}
                                     {filteredItems.map(item => (
                                         <div key={item.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-lg transition-all relative overflow-hidden flex flex-col">
                                             <div className="p-5 border-b border-slate-100">
                                                 <div className="absolute top-4 right-4 flex gap-1">
-                                                    <button onClick={() => openModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 rounded-lg transition-colors">✏️</button>
-                                                    <button onClick={() => setConfirmDeleteId(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors">🗑️</button>
+                                                    <button onClick={() => openModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600 bg-slate-50 rounded-lg">✏️</button>
+                                                    <button onClick={() => {setConfirmDeleteId(item.id);}} className="p-1.5 text-slate-400 hover:text-red-600 bg-slate-50 rounded-lg">🗑️</button>
                                                 </div>
-                                                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 ${activeTab === 'recipes' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>{item.category}</div>
+                                                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mb-3 ${activeTab === 'recipes' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                                                    {item.category || 'ไม่ระบุหมวดหมู่'}
+                                                </div>
                                                 <h3 className="text-xl font-black text-slate-800 mb-1 pr-16 leading-tight">{item.name}</h3>
-                                                <p className="text-sm font-bold text-slate-500">⏱️ {item.prepTime}</p>
                                             </div>
                                             <div className="p-5 flex-1 flex flex-col gap-4">
                                                 <div className={`p-4 rounded-xl border ${activeTab === 'recipes' ? 'bg-amber-50/50 border-amber-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
-                                                    <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><span>📌</span> {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}</h4>
-                                                    <ul className="grid grid-cols-1 gap-2">
-                                                        {item.ingredients && item.ingredients.map((ing, idx) => (
-                                                            <li key={idx} className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
-                                                                <span className="font-semibold text-slate-700">{ing.name}</span>
-                                                                <span className="text-slate-500 bg-white px-2 py-0.5 rounded text-xs border border-slate-200">{ing.amount}</span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
+                                                    <h4 className="text-sm font-bold text-slate-700 mb-3">📌 {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}</h4>
+                                                    {item.ingredients && item.ingredients.length > 0 ? (
+                                                        <ul className="grid grid-cols-1 gap-2">
+                                                            {item.ingredients.map((ing, idx) => (
+                                                                <li key={idx} className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
+                                                                    <span className="font-semibold text-slate-700">{ing.name}</span>
+                                                                    {ing.amount && <span className="text-slate-500 bg-white px-2 py-0.5 rounded text-xs border border-slate-200">{ing.amount}</span>}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : <div className="text-xs text-slate-400 italic">ไม่มีข้อมูลส่วนผสม</div>}
                                                 </div>
                                                 <div>
                                                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{activeTab === 'recipes' ? 'วิธีทำ (Steps)' : 'ขั้นตอนปฏิบัติ'}</h4>
-                                                    <div className="text-sm font-medium text-slate-700 whitespace-pre-line leading-relaxed">{item.steps || '-'}</div>
+                                                    <div className="text-sm font-medium text-slate-700 whitespace-pre-line leading-relaxed">{item.steps || <span className="text-slate-400 italic">ไม่ได้ระบุขั้นตอนไว้</span>}</div>
                                                 </div>
                                             </div>
                                             <div className="p-3 border-t border-slate-100 bg-slate-50">
@@ -342,46 +381,14 @@
                     </div>
 
                     {activeTab !== 'queue' && (
-                        <button onClick={() => openModal()} className="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg shadow-slate-400/50 hover:bg-slate-700 hover:scale-105 transition-all text-2xl font-light z-40">
+                        <button onClick={() => openModal()} className="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg shadow-slate-400/50 hover:bg-slate-700 transition-all text-2xl font-light z-40">
                             +
                         </button>
                     )}
 
-                    {/* --- Modals (ซ่อนเมื่อไม่ได้เปิด) --- */}
-                    {confirmDeleteId && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[80] flex items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-slide-up">
-                                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🗑️</div>
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">ลบรายการนี้?</h3>
-                                <div className="flex gap-3">
-                                    <button onClick={() => setConfirmDeleteId(null)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
-                                    <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600">ลบทิ้ง</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {isFilterModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex flex-col justify-end md:justify-center items-center p-0 md:p-4">
-                            <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
-                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                    <h2 className="text-xl font-black text-slate-800">📁 เลือกหมวดหมู่</h2>
-                                    <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
-                                </div>
-                                <div className="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
-                                    <button onClick={() => { setSelectedCategoryFilter('All'); setIsFilterModalOpen(false); }} className={`p-4 rounded-2xl border-2 text-center font-bold transition-all ${selectedCategoryFilter === 'All' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                                        ทุกหมวดหมู่
-                                    </button>
-                                    {categories.map(cat => (
-                                        <button key={cat} onClick={() => { setSelectedCategoryFilter(cat); setIsFilterModalOpen(false); }} className={`p-4 rounded-2xl border-2 text-center font-bold transition-all flex flex-col items-center justify-center gap-1 ${selectedCategoryFilter === cat ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-                                            {cat}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
+                    {/* Modals */}
+                    
+                    {/* จัดการหมวดหมู่ */}
                     {isCatManageModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -420,6 +427,7 @@
                         </div>
                     )}
 
+                    {/* จัดการพนักงาน */}
                     {isStaffModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -450,12 +458,13 @@
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
                                 <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                                     <h3 className="text-lg font-black text-slate-800">ส่งเข้าคิว: {assigningItem.name}</h3>
-                                    <button onClick={() => setAssigningItem(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                    <button onClick={() => setAssigningItem(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 w-8 h-8 rounded-full font-bold">✕</button>
                                 </div>
                                 <div className="p-5">
+                                    <p className="text-sm font-bold text-slate-500 mb-4">ระบุผู้รับผิดชอบ (Assign to):</p>
                                     <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
                                         {staffList.map(staff => (
-                                            <button key={staff.id} onClick={() => addToQueue(staff.id)} className="p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-indigo-500 hover:text-indigo-700 text-left flex justify-between items-center transition-all">
+                                            <button key={staff.id} onClick={() => addToQueue(staff.id)} className="p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-indigo-500 hover:text-indigo-700 text-left flex justify-between items-center">
                                                 {staff.name} <span className="text-slate-300">👉</span>
                                             </button>
                                         ))}
@@ -465,57 +474,54 @@
                         </div>
                     )}
 
-                    {editingQueueId && (
-                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-end md:items-center justify-center p-4">
-                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-slide-up">
+                    {/* Filter Category Grid Modal */}
+                    {isFilterModalOpen && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex flex-col justify-end md:justify-center items-center p-0 md:p-4">
+                            <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
                                 <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                                    <h3 className="text-lg font-black text-slate-800">✏️ แก้ไขคิวงาน</h3>
-                                    <button onClick={() => setEditingQueueId(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                    <h2 className="text-xl font-black text-slate-800">📁 เลือกหมวดหมู่</h2>
+                                    <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
                                 </div>
-                                <form onSubmit={saveQueueEdit} className="p-5 space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">เปลี่ยนรายการ (เมนู/หน้าที่)</label>
-                                        <select value={queueEditData.itemId} onChange={e => setQueueEditData({...queueEditData, itemId: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none">
-                                            {items.map(i => <option key={i.id} value={i.id}>[{i.category}] {i.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">เปลี่ยนผู้รับผิดชอบ</label>
-                                        <select value={queueEditData.staffName} onChange={e => setQueueEditData({...queueEditData, staffName: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none">
-                                            <option value="ไม่มีผู้รับผิดชอบ">ไม่มีผู้รับผิดชอบ</option>
-                                            {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md">
-                                        💾 บันทึกการแก้ไข
+                                <div className="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                                    <button 
+                                        onClick={() => { setSelectedCategoryFilter('All'); setIsFilterModalOpen(false); }}
+                                        className={`p-4 rounded-2xl border-2 text-center font-bold transition-all ${selectedCategoryFilter === 'All' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                                    >
+                                        ทุกหมวดหมู่
                                     </button>
-                                </form>
+                                    {categories.map(cat => (
+                                        <button 
+                                            key={cat}
+                                            onClick={() => { setSelectedCategoryFilter(cat); setIsFilterModalOpen(false); }}
+                                            className={`p-4 rounded-2xl border-2 text-center font-bold transition-all flex flex-col items-center justify-center gap-1 ${selectedCategoryFilter === cat ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
+                    {/* Add/Edit Modal with Fixed JSX Comments */}
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
                                 <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                                     <h2 className="text-xl font-black text-slate-800">{editingItem ? '✏️ แก้ไขรายการ' : (activeTab === 'recipes' ? '☕ เพิ่มสูตรใหม่' : '✅ เพิ่มหน้าที่ใหม่')}</h2>
-                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                    <button onClick={() => setIsModalOpen(false)} className="text-slate-400 bg-slate-200 w-8 h-8 rounded-full font-bold">✕</button>
                                 </div>
                                 <form onSubmit={saveItem} className="p-6 space-y-5 overflow-y-auto hide-scrollbar">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4">
                                         <div>
                                             <label className="block text-sm font-bold text-slate-700 mb-1">ชื่อรายการ</label>
-                                            <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-bold text-slate-700 mb-1">{activeTab === 'recipes' ? 'เวลาเตรียม' : 'ช่วงเวลา'}</label>
-                                            <input type="text" required value={formData.prepTime} onChange={e => setFormData({...formData, prepTime: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none" />
+                                            <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none" placeholder="ปล่อยว่างได้" />
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">หมวดหมู่ (Category)</label>
-                                        <select required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none">
-                                            <option value="" disabled>-- เลือกหมวดหมู่ --</option>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">หมวดหมู่</label>
+                                        <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none text-slate-600">
+                                            <option value="">-- ไม่ระบุหมวดหมู่ --</option>
                                             {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                         </select>
                                     </div>
@@ -525,46 +531,90 @@
                                         </div>
                                         {formData.ingredients.map((ing, index) => (
                                             <div key={index} className="flex gap-2 mb-2 items-start">
-                                                <select value={ing.name} onChange={(e) => handleIngredientChange(index, 'name', e.target.value)} className="flex-[2] p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm" required>
-                                                    <option value="" disabled>เลือกส่วนผสม</option>
+                                                <select value={ing.name} onChange={(e) => handleIngredientChange(index, 'name', e.target.value)} className="flex-[2] p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm text-slate-600">
+                                                    <option value="">-- ไม่ระบุ --</option>
                                                     {masterIngredients.map(mIng => <option key={mIng} value={mIng}>{mIng}</option>)}
                                                 </select>
                                                 <input type="text" value={ing.amount} onChange={(e) => handleIngredientChange(index, 'amount', e.target.value)} className="flex-1 p-2.5 bg-white border border-slate-300 rounded-lg outline-none text-sm" placeholder="ปริมาณ" />
-                                                <button type="button" onClick={() => removeIngredientRow(index)} className="p-2.5 text-slate-400 hover:text-red-500 bg-white border border-slate-200 rounded-lg">✕</button>
+                                                <button type="button" onClick={() => removeIngredientRow(index)} className="p-2.5 text-slate-400 bg-white border border-slate-200 rounded-lg">✕</button>
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addIngredientRow} className="mt-2 text-sm font-bold text-amber-600 hover:text-amber-700">+ เพิ่มบรรทัดส่วนผสม</button>
+                                        <button type="button" onClick={addIngredientRow} className="mt-2 text-sm font-bold text-amber-600">+ เพิ่มบรรทัด</button>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-bold text-slate-700 mb-1">{activeTab === 'recipes' ? 'วิธีทำ (Steps)' : 'ขั้นตอนปฏิบัติ'}</label>
-                                        <textarea value={formData.steps} onChange={e => setFormData({...formData, steps: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none min-h-[100px]"></textarea>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">วิธีทำ (Steps)</label>
+                                        {/* แก้ไขคอมเมนต์ใน JSX ตรงนี้เพื่อป้องกัน Babel Crash */}
+                                        <textarea rows="6" value={formData.steps} onChange={e => setFormData({...formData, steps: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none" placeholder="สามารถปล่อยว่างได้..."></textarea>
                                     </div>
                                     <div className="pt-4 border-t border-slate-100 flex gap-3">
-                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
-                                        <button type="submit" className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 shadow-md">💾 บันทึกข้อมูล</button>
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl">ยกเลิก</button>
+                                        <button type="submit" className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-md">💾 บันทึกข้อมูล</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
                     )}
+                    
+                    {/* Delete Confirm Modal */}
+                    {confirmDeleteId && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[80] flex items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-slide-up">
+                                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🗑️</div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-2">ลบรายการนี้?</h3>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setConfirmDeleteId(null)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
+                                    <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600">ลบทิ้ง</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             );
         }
 
-        // --- Error Boundary ---
+        // --- Error Boundary (ระบบป้องกันหน้าจอขาวจาก Tech Lead) ---
         class ErrorBoundary extends React.Component {
-            constructor(props) { super(props); this.state = { hasError: false, errorMsg: '' }; }
-            static getDerivedStateFromError(error) { return { hasError: true, errorMsg: error.message }; }
-            componentDidCatch(error) { console.error("React Error:", error); }
+            constructor(props) { 
+                super(props); 
+                this.state = { hasError: false, error: null }; 
+            }
+            
+            static getDerivedStateFromError(error) { 
+                return { hasError: true, error }; 
+            }
+            
+            componentDidCatch(error, errorInfo) { 
+                console.error("DOSE SOP React Error Caught:", error, errorInfo); 
+            }
+            
             render() {
                 if (this.state.hasError) {
                     return (
                         <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
                             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 border-red-500">
                                 <div className="text-6xl mb-4">🚨</div>
-                                <h1 className="text-2xl font-black text-slate-800 mb-2">หน้าจอแครช (React Error)</h1>
-                                <p className="text-slate-500 mb-6 text-sm">{this.state.errorMsg || 'เกิดข้อผิดพลาดในการคำนวณข้อมูล'}</p>
-                                <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl border border-red-200">🗑️ ล้างข้อมูลและรีเฟรช</button>
+                                <h1 className="text-2xl font-black text-slate-800 mb-2">ระบบขัดข้องชั่วคราว</h1>
+                                <p className="text-slate-500 mb-6 text-sm">
+                                    พบข้อผิดพลาดในการแสดงผล React ภายในแอปพลิเคชัน
+                                </p>
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="w-full py-3 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 mb-3 shadow-md"
+                                >
+                                    🔄 รีเฟรชหน้าจอ
+                                </button>
+                                <button 
+                                    onClick={() => { 
+                                        if(window.confirm('คำเตือน: การล้างข้อมูลจะทำให้สูตรทั้งหมดที่เซฟไว้หายไป ยืนยันหรือไม่?')) {
+                                            localStorage.clear(); 
+                                            window.location.reload(); 
+                                        }
+                                    }} 
+                                    className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 border border-red-200"
+                                >
+                                    🗑️ ล้างข้อมูลทั้งหมด (Reset System)
+                                </button>
                             </div>
                         </div>
                     );
@@ -574,7 +624,11 @@
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<ErrorBoundary><App /></ErrorBoundary>);
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 </html>
