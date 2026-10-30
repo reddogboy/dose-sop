@@ -2,35 +2,74 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <!-- ป้องกันการซูมหน้าจออัตโนมัติบน iPad/iPhone -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>DOSE Coffee | SOP & Recipes</title>
     
-    <!-- 1. โหลด Tailwind CSS -->
+    <!-- 1. ใช้ CDN ของ Cloudflare ที่เสถียรที่สุดแทน unpkg -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. โหลด React & ReactDOM (ล็อคเวอร์ชัน 18.2.0 ให้เสถียรที่สุด) -->
-    <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-    
-    <!-- 3. โหลด Babel สำหรับแปลงโค้ด JSX (ล็อคเวอร์ชัน 7) -->
-    <script src="https://unpkg.com/@babel/standalone@7.23.6/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js" crossorigin></script>
 
     <style>
         body { background-color: #f9fafb; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         .glass-header { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border-bottom: 1px solid #e5e7eb; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
-        
-        /* อนิเมชันเด้งขึ้นมานุ่มๆ */
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
 <body class="text-slate-800">
+    
+    <!-- พื้นที่หลักสำหรับ React -->
     <div id="root"></div>
 
+    <!-- ปราการด่านสุดท้าย (Fail-Safe UI) จะทำงานถ้า React โหลดไม่สำเร็จใน 2.5 วินาที -->
+    <div id="critical-fallback" style="display: none; min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #f1f5f9; padding: 20px; text-align: center;">
+        <div style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 8px solid #ef4444; max-width: 400px; width: 100%;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🚨</div>
+            <h1 style="font-size: 1.5rem; font-weight: 900; color: #1e293b; margin-bottom: 0.5rem;">ระบบโหลดไม่สำเร็จ</h1>
+            <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 1.5rem;">
+                อาจเกิดจากโครงสร้างข้อมูลเก่าขัดข้อง หรืออินเทอร์เน็ตบล็อกการโหลดไลบรารี กรุณากดปุ่มด้านล่างเพื่อรีเซ็ตระบบ
+            </p>
+            <button onclick="forceResetSystem()" style="width: 100%; padding: 12px; background-color: #ef4444; color: white; border: none; border-radius: 0.5rem; font-weight: bold; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);">
+                🔄 ล้างข้อมูลทั้งหมดและเริ่มใหม่
+            </button>
+        </div>
+    </div>
+
+    <!-- Vanilla JS: ระบบกู้ภัยฉุกเฉิน (อยู่รอดแม้ React พัง) -->
+    <script>
+        function forceResetSystem() {
+            localStorage.clear();
+            window.location.reload();
+        }
+
+        // จับเวลา ถ้า root ยังไม่มีลูก (ยังว่างเปล่า) หลังผ่านไป 2.5 วิ แปลว่าจอขาวชัวร์ๆ ให้โชว์ Fallback
+        const fallbackTimer = setTimeout(() => {
+            const root = document.getElementById('root');
+            if (!root || root.innerHTML.trim() === '') {
+                document.getElementById('critical-fallback').style.display = 'flex';
+            } else {
+                document.getElementById('critical-fallback').style.display = 'none';
+            }
+        }, 2500);
+    </script>
+
+    <!-- React Application -->
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
+
+        // --- Safe JSON Parser (ดักจับข้อมูลเป็นพิษ) ---
+        function safeStorageGet(key, fallbackValue) {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : fallbackValue;
+            } catch (error) {
+                console.error(`🚨 Data Corruption detected in ${key}:`, error);
+                return fallbackValue;
+            }
+        }
 
         // --- Mock Data ---
         const initialCategories = ['Coffee (Milk)', 'Coffee (Clear)', 'Tea', 'Non-Coffee', 'Bakery', 'Opening', 'Closing', 'Cleaning'];
@@ -44,17 +83,23 @@
         ];
 
         function App() {
-            // --- State Management ---
+            // เคลียร์ Timer ฉุกเฉิน เพราะ React โหลดสำเร็จแล้ว
+            useEffect(() => {
+                clearTimeout(fallbackTimer);
+                const fallbackEl = document.getElementById('critical-fallback');
+                if(fallbackEl) fallbackEl.style.display = 'none';
+            }, []);
+
+            // --- State Management (ใช้ safeStorageGet แทน JSON.parse ตรงๆ) ---
             const [activeTab, setActiveTab] = useState('recipes'); 
             const [searchQuery, setSearchQuery] = useState('');
             const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
 
-            // Databases (LocalStorage)
-            const [items, setItems] = useState(() => JSON.parse(localStorage.getItem('dose_sop_data_v4')) || initialItems);
-            const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('dose_categories_v4')) || initialCategories);
-            const [masterIngredients, setMasterIngredients] = useState(() => JSON.parse(localStorage.getItem('dose_ingredients_v4')) || initialIngredientsMaster);
-            const [staffList, setStaffList] = useState(() => JSON.parse(localStorage.getItem('dose_staff_v4')) || initialStaff);
-            const [queue, setQueue] = useState(() => JSON.parse(localStorage.getItem('dose_queue_v4')) || []);
+            const [items, setItems] = useState(() => safeStorageGet('dose_sop_data_v6', initialItems));
+            const [categories, setCategories] = useState(() => safeStorageGet('dose_categories_v6', initialCategories));
+            const [masterIngredients, setMasterIngredients] = useState(() => safeStorageGet('dose_ingredients_v6', initialIngredientsMaster));
+            const [staffList, setStaffList] = useState(() => safeStorageGet('dose_staff_v6', initialStaff));
+            const [queue, setQueue] = useState(() => safeStorageGet('dose_queue_v6', []));
 
             // Modals State
             const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,6 +111,9 @@
             const [isCatManageModalOpen, setIsCatManageModalOpen] = useState(false);
             const [assigningItem, setAssigningItem] = useState(null);
             
+            const [editingQueueId, setEditingQueueId] = useState(null);
+            const [queueEditData, setQueueEditData] = useState({ itemId: '', staffName: '' });
+            
             const [quickAddType, setQuickAddType] = useState(null); 
             const [quickAddValue, setQuickAddValue] = useState('');
             const [newStaffName, setNewStaffName] = useState('');
@@ -73,15 +121,14 @@
             const [editingCatName, setEditingCatName] = useState(null);
             const [editingCatValue, setEditingCatValue] = useState('');
 
-            // Form State
             const [formData, setFormData] = useState({ name: '', category: '', prepTime: '', ingredients: [{ name: '', amount: '' }], steps: '' });
 
-            // Sync to LocalStorage
-            useEffect(() => { localStorage.setItem('dose_sop_data_v4', JSON.stringify(items)); }, [items]);
-            useEffect(() => { localStorage.setItem('dose_categories_v4', JSON.stringify(categories)); }, [categories]);
-            useEffect(() => { localStorage.setItem('dose_ingredients_v4', JSON.stringify(masterIngredients)); }, [masterIngredients]);
-            useEffect(() => { localStorage.setItem('dose_staff_v4', JSON.stringify(staffList)); }, [staffList]);
-            useEffect(() => { localStorage.setItem('dose_queue_v4', JSON.stringify(queue)); }, [queue]);
+            // Sync to LocalStorage (เปลี่ยนคีย์เป็น v6 เพื่อบังคับรีเซ็ตของเก่าที่พัง)
+            useEffect(() => { localStorage.setItem('dose_sop_data_v6', JSON.stringify(items)); }, [items]);
+            useEffect(() => { localStorage.setItem('dose_categories_v6', JSON.stringify(categories)); }, [categories]);
+            useEffect(() => { localStorage.setItem('dose_ingredients_v6', JSON.stringify(masterIngredients)); }, [masterIngredients]);
+            useEffect(() => { localStorage.setItem('dose_staff_v6', JSON.stringify(staffList)); }, [staffList]);
+            useEffect(() => { localStorage.setItem('dose_queue_v6', JSON.stringify(queue)); }, [queue]);
 
             // --- Logic ---
             const filteredItems = useMemo(() => {
@@ -138,20 +185,41 @@
                 setEditingCatName(null);
             };
 
+            // Queue Handlers
             const addToQueue = (staffId) => {
                 const staff = staffList.find(s => s.id === staffId);
-                const newQueueItem = { qId: Date.now(), item: assigningItem, staffName: staff ? staff.name : 'ไม่มีผู้รับผิดชอบ', status: 'pending', timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) };
+                const newQueueItem = { 
+                    qId: Date.now() + Math.random(),
+                    item: assigningItem, 
+                    staffName: staff ? staff.name : 'ไม่มีผู้รับผิดชอบ', 
+                    status: 'pending', 
+                    timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) 
+                };
                 setQueue([newQueueItem, ...queue]);
-                setAssigningItem(null); setActiveTab('queue');
+                setAssigningItem(null); 
+                setActiveTab('queue');
             };
 
             const markQueueDone = (qId) => setQueue(queue.map(q => q.qId === qId ? { ...q, status: 'done' } : q));
             const removeQueue = (qId) => setQueue(queue.filter(q => q.qId !== qId));
+            const undoQueueDone = (qId) => setQueue(queue.map(q => q.qId === qId ? { ...q, status: 'pending' } : q));
 
-            // --- Render ---
+            const openEditQueue = (q) => {
+                setEditingQueueId(q.qId);
+                setQueueEditData({ itemId: q.item.id, staffName: q.staffName });
+            };
+
+            const saveQueueEdit = (e) => {
+                e.preventDefault();
+                const updatedItem = items.find(i => i.id === Number(queueEditData.itemId));
+                if (!updatedItem) return;
+                setQueue(queue.map(q => q.qId === editingQueueId ? { ...q, item: updatedItem, staffName: queueEditData.staffName } : q));
+                setEditingQueueId(null);
+            };
+
+            // --- Render UI ---
             return (
                 <div className="min-h-screen pb-24">
-                    {/* Header */}
                     <div className="glass-header sticky top-0 z-10 px-4 py-4 md:px-8 flex justify-between items-center shadow-sm">
                         <div>
                             <h1 className="text-2xl font-black text-amber-800 tracking-tight">☕ DOSE SOP</h1>
@@ -168,7 +236,6 @@
                     </div>
 
                     <div className="max-w-5xl mx-auto px-4 mt-6 space-y-5">
-                        {/* Tabs */}
                         <div className="flex bg-slate-200 p-1.5 rounded-xl overflow-x-auto hide-scrollbar">
                             <button onClick={() => {setActiveTab('recipes'); setSelectedCategoryFilter('All');}} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'recipes' ? 'bg-white text-amber-800 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>📖 สูตรเครื่องดื่ม</button>
                             <button onClick={() => {setActiveTab('tasks'); setSelectedCategoryFilter('All');}} className={`flex-1 min-w-[120px] py-2.5 rounded-lg font-bold text-sm transition-all ${activeTab === 'tasks' ? 'bg-white text-indigo-700 shadow' : 'text-slate-500 hover:bg-slate-300/50'}`}>✅ หน้าที่ปฏิบัติงาน</button>
@@ -177,7 +244,6 @@
                             </button>
                         </div>
 
-                        {/* Content Area */}
                         {activeTab === 'queue' ? (
                             <div className="space-y-4 animate-slide-up">
                                 <div className="flex justify-between items-center mb-2">
@@ -189,10 +255,10 @@
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {queue.map(q => (
-                                            <div key={q.qId} className={`p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center gap-4 ${q.status === 'done' ? 'bg-slate-50 border-slate-200 opacity-60' : (q.item.type === 'recipe' ? 'bg-white border-amber-200 border-l-8 border-l-amber-500' : 'bg-white border-indigo-200 border-l-8 border-l-indigo-500')}`}>
+                                            <div key={q.qId} className={`p-4 rounded-2xl border-2 shadow-sm transition-all flex items-center gap-4 ${q.status === 'done' ? 'bg-slate-50 border-slate-200 opacity-60' : (q.item?.type === 'recipe' ? 'bg-white border-amber-200 border-l-8 border-l-amber-500' : 'bg-white border-indigo-200 border-l-8 border-l-indigo-500')}`}>
                                                 <div className="flex-1">
                                                     <div className="flex justify-between items-start mb-1">
-                                                        <h3 className={`font-black text-lg ${q.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{q.item.name}</h3>
+                                                        <h3 className={`font-black text-lg ${q.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{q.item?.name || 'ลบข้อมูลไปแล้ว'}</h3>
                                                         <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">{q.timestamp}</span>
                                                     </div>
                                                     <div className="flex gap-2 items-center text-sm font-bold">
@@ -202,9 +268,15 @@
                                                 </div>
                                                 <div className="flex gap-2">
                                                     {q.status === 'pending' ? (
-                                                        <button onClick={() => markQueueDone(q.qId)} className="w-12 h-12 bg-green-100 hover:bg-green-500 text-green-600 hover:text-white rounded-xl flex items-center justify-center text-2xl transition-colors shadow-sm">✓</button>
+                                                        <React.Fragment>
+                                                            <button onClick={() => openEditQueue(q)} className="w-12 h-12 bg-blue-50 hover:bg-blue-500 text-blue-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors shadow-sm" title="แก้ไข">✏️</button>
+                                                            <button onClick={() => markQueueDone(q.qId)} className="w-12 h-12 bg-green-100 hover:bg-green-500 text-green-600 hover:text-white rounded-xl flex items-center justify-center text-2xl transition-colors shadow-sm" title="เสร็จแล้ว">✓</button>
+                                                        </React.Fragment>
                                                     ) : (
-                                                        <button onClick={() => removeQueue(q.qId)} className="w-12 h-12 bg-slate-200 hover:bg-red-500 text-slate-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors">🗑️</button>
+                                                        <React.Fragment>
+                                                            <button onClick={() => undoQueueDone(q.qId)} className="w-12 h-12 bg-amber-50 hover:bg-amber-500 text-amber-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors shadow-sm" title="ย้อนกลับ">↩️</button>
+                                                            <button onClick={() => removeQueue(q.qId)} className="w-12 h-12 bg-slate-200 hover:bg-red-500 text-slate-500 hover:text-white rounded-xl flex items-center justify-center text-xl transition-colors" title="ลบทิ้ง">🗑️</button>
+                                                        </React.Fragment>
                                                     )}
                                                 </div>
                                             </div>
@@ -214,7 +286,6 @@
                             </div>
                         ) : (
                             <div className="animate-slide-up">
-                                {/* Search & Filter Bar */}
                                 <div className="flex flex-col md:flex-row gap-3 mb-4">
                                     <div className="relative flex-1">
                                         <span className="absolute left-4 top-3.5 text-slate-400">🔍</span>
@@ -226,7 +297,6 @@
                                     </button>
                                 </div>
 
-                                {/* Item Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                     {filteredItems.length === 0 && (
                                         <div className="col-span-full py-16 text-center text-slate-400 font-medium bg-white rounded-2xl border-2 border-dashed border-slate-200">ไม่พบข้อมูล กรุณากดปุ่ม + เพื่อเพิ่มรายการ</div>
@@ -246,7 +316,7 @@
                                                 <div className={`p-4 rounded-xl border ${activeTab === 'recipes' ? 'bg-amber-50/50 border-amber-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
                                                     <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><span>📌</span> {activeTab === 'recipes' ? 'สิ่งที่ต้องเตรียม' : 'อุปกรณ์ที่ใช้'}</h4>
                                                     <ul className="grid grid-cols-1 gap-2">
-                                                        {item.ingredients.map((ing, idx) => (
+                                                        {item.ingredients && item.ingredients.map((ing, idx) => (
                                                             <li key={idx} className="flex justify-between items-center text-sm border-b border-slate-200/50 pb-1 last:border-0 last:pb-0">
                                                                 <span className="font-semibold text-slate-700">{ing.name}</span>
                                                                 <span className="text-slate-500 bg-white px-2 py-0.5 rounded text-xs border border-slate-200">{ing.amount}</span>
@@ -271,22 +341,18 @@
                         )}
                     </div>
 
-                    {/* FAB */}
                     {activeTab !== 'queue' && (
                         <button onClick={() => openModal()} className="fixed bottom-6 right-6 w-14 h-14 bg-slate-800 text-white rounded-full flex items-center justify-center shadow-lg shadow-slate-400/50 hover:bg-slate-700 hover:scale-105 transition-all text-2xl font-light z-40">
                             +
                         </button>
                     )}
 
-                    {/* --- MODALS --- */}
-                    
-                    {/* Delete Confirmation Modal */}
+                    {/* --- Modals (ซ่อนเมื่อไม่ได้เปิด) --- */}
                     {confirmDeleteId && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[80] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-slide-up">
                                 <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">🗑️</div>
                                 <h3 className="text-xl font-bold text-slate-800 mb-2">ลบรายการนี้?</h3>
-                                <p className="text-slate-500 text-sm mb-6">คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้ ข้อมูลจะไม่สามารถกู้คืนได้</p>
                                 <div className="flex gap-3">
                                     <button onClick={() => setConfirmDeleteId(null)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200">ยกเลิก</button>
                                     <button onClick={executeDelete} className="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600">ลบทิ้ง</button>
@@ -295,7 +361,6 @@
                         </div>
                     )}
 
-                    {/* Filter Category Grid Modal */}
                     {isFilterModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex flex-col justify-end md:justify-center items-center p-0 md:p-4">
                             <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -304,20 +369,12 @@
                                     <button onClick={() => setIsFilterModalOpen(false)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
                                 </div>
                                 <div className="p-6 grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
-                                    <button 
-                                        onClick={() => { setSelectedCategoryFilter('All'); setIsFilterModalOpen(false); }}
-                                        className={`p-4 rounded-2xl border-2 text-center font-bold transition-all ${selectedCategoryFilter === 'All' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                                    >
+                                    <button onClick={() => { setSelectedCategoryFilter('All'); setIsFilterModalOpen(false); }} className={`p-4 rounded-2xl border-2 text-center font-bold transition-all ${selectedCategoryFilter === 'All' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
                                         ทุกหมวดหมู่
                                     </button>
                                     {categories.map(cat => (
-                                        <button 
-                                            key={cat}
-                                            onClick={() => { setSelectedCategoryFilter(cat); setIsFilterModalOpen(false); }}
-                                            className={`p-4 rounded-2xl border-2 text-center font-bold transition-all flex flex-col items-center justify-center gap-1 ${selectedCategoryFilter === cat ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
-                                        >
+                                        <button key={cat} onClick={() => { setSelectedCategoryFilter(cat); setIsFilterModalOpen(false); }} className={`p-4 rounded-2xl border-2 text-center font-bold transition-all flex flex-col items-center justify-center gap-1 ${selectedCategoryFilter === cat ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
                                             {cat}
-                                            {selectedCategoryFilter === cat && <span className="text-amber-500">✓</span>}
                                         </button>
                                     ))}
                                 </div>
@@ -325,7 +382,6 @@
                         </div>
                     )}
 
-                    {/* Manage Categories Modal */}
                     {isCatManageModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -338,7 +394,6 @@
                                         <input type="text" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCategory()} className="flex-1 p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-amber-500 outline-none" placeholder="ชื่อหมวดหมู่ใหม่" />
                                         <button onClick={addCategory} className="px-5 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600">เพิ่ม</button>
                                     </div>
-                                    <h4 className="text-sm font-bold text-slate-500 mb-3">รายชื่อหมวดหมู่ทั้งหมด</h4>
                                     <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
                                         {categories.map(cat => (
                                             <div key={cat} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
@@ -349,13 +404,13 @@
                                                         <button onClick={() => setEditingCatName(null)} className="text-slate-500 bg-slate-200 px-3 py-1 rounded font-bold text-sm">ยกเลิก</button>
                                                     </div>
                                                 ) : (
-                                                    <>
+                                                    <React.Fragment>
                                                         <span className="font-bold text-slate-700">{cat}</span>
                                                         <div className="flex gap-1">
                                                             <button onClick={() => { setEditingCatName(cat); setEditingCatValue(cat); }} className="text-blue-500 font-bold text-sm bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100">แก้</button>
                                                             <button onClick={() => removeCategory(cat)} className="text-red-500 font-bold text-sm bg-red-50 px-3 py-1 rounded-lg hover:bg-red-100">ลบ</button>
                                                         </div>
-                                                    </>
+                                                    </React.Fragment>
                                                 )}
                                             </div>
                                         ))}
@@ -365,7 +420,6 @@
                         </div>
                     )}
 
-                    {/* Manage Staff Modal */}
                     {isStaffModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col animate-slide-up">
@@ -375,10 +429,9 @@
                                 </div>
                                 <div className="p-5">
                                     <div className="flex gap-2 mb-6">
-                                        <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStaff()} className="flex-1 p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none" placeholder="ชื่อพนักงาน (เช่น จอย Barista)" />
+                                        <input type="text" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addStaff()} className="flex-1 p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none" placeholder="ชื่อพนักงาน" />
                                         <button onClick={addStaff} className="px-5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">เพิ่ม</button>
                                     </div>
-                                    <h4 className="text-sm font-bold text-slate-500 mb-3">รายชื่อพนักงาน</h4>
                                     <div className="space-y-2 max-h-60 overflow-y-auto">
                                         {staffList.map(staff => (
                                             <div key={staff.id} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
@@ -392,7 +445,6 @@
                         </div>
                     )}
 
-                    {/* Assign Task to Queue Modal */}
                     {assigningItem && (
                         <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-end md:items-center justify-center p-4">
                             <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-slide-up">
@@ -401,7 +453,6 @@
                                     <button onClick={() => setAssigningItem(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
                                 </div>
                                 <div className="p-5">
-                                    <p className="text-sm font-bold text-slate-500 mb-4">ระบุผู้รับผิดชอบ (Assign to):</p>
                                     <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
                                         {staffList.map(staff => (
                                             <button key={staff.id} onClick={() => addToQueue(staff.id)} className="p-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:border-indigo-500 hover:text-indigo-700 text-left flex justify-between items-center transition-all">
@@ -414,7 +465,35 @@
                         </div>
                     )}
 
-                    {/* Add/Edit Item Modal */}
+                    {editingQueueId && (
+                        <div className="fixed inset-0 bg-slate-900/60 z-[70] flex items-end md:items-center justify-center p-4">
+                            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col animate-slide-up">
+                                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                    <h3 className="text-lg font-black text-slate-800">✏️ แก้ไขคิวงาน</h3>
+                                    <button onClick={() => setEditingQueueId(null)} className="text-slate-400 hover:text-slate-600 bg-slate-200 hover:bg-slate-300 w-8 h-8 rounded-full font-bold transition-colors">✕</button>
+                                </div>
+                                <form onSubmit={saveQueueEdit} className="p-5 space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">เปลี่ยนรายการ (เมนู/หน้าที่)</label>
+                                        <select value={queueEditData.itemId} onChange={e => setQueueEditData({...queueEditData, itemId: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none">
+                                            {items.map(i => <option key={i.id} value={i.id}>[{i.category}] {i.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-700 mb-1">เปลี่ยนผู้รับผิดชอบ</label>
+                                        <select value={queueEditData.staffName} onChange={e => setQueueEditData({...queueEditData, staffName: e.target.value})} className="w-full p-3 bg-white border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none">
+                                            <option value="ไม่มีผู้รับผิดชอบ">ไม่มีผู้รับผิดชอบ</option>
+                                            {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <button type="submit" className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-md">
+                                        💾 บันทึกการแก้ไข
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
                     {isModalOpen && (
                         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                             <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-slide-up">
@@ -474,16 +553,17 @@
 
         // --- Error Boundary ---
         class ErrorBoundary extends React.Component {
-            constructor(props) { super(props); this.state = { hasError: false }; }
-            static getDerivedStateFromError(error) { return { hasError: true }; }
+            constructor(props) { super(props); this.state = { hasError: false, errorMsg: '' }; }
+            static getDerivedStateFromError(error) { return { hasError: true, errorMsg: error.message }; }
+            componentDidCatch(error) { console.error("React Error:", error); }
             render() {
                 if (this.state.hasError) {
                     return (
                         <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
                             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 border-red-500">
                                 <div className="text-6xl mb-4">🚨</div>
-                                <h1 className="text-2xl font-black text-slate-800 mb-2">ระบบขัดข้อง</h1>
-                                <p className="text-slate-500 mb-6 text-sm">การก๊อปปี้โค้ดอาจเกิดความผิดพลาด กรุณารีเซ็ตระบบเพื่อเริ่มต้นใหม่</p>
+                                <h1 className="text-2xl font-black text-slate-800 mb-2">หน้าจอแครช (React Error)</h1>
+                                <p className="text-slate-500 mb-6 text-sm">{this.state.errorMsg || 'เกิดข้อผิดพลาดในการคำนวณข้อมูล'}</p>
                                 <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl border border-red-200">🗑️ ล้างข้อมูลและรีเฟรช</button>
                             </div>
                         </div>
